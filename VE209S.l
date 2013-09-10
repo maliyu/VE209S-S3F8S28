@@ -1,4 +1,4 @@
-Tue Sep 10 17:48:19 2013
+Tue Sep 10 18:30:28 2013
                               
      SAM8 Assembler Ver. 2.15T(Win32) Copyright (c) 2003 Samsung Electronics Co.
                              
@@ -103,25 +103,25 @@ Tue Sep 10 17:48:19 2013
    95                    ;;==            INTERRUPT VECTOR                                       ==
    96                    ;;==                                                                   == 
    97                    ;;=======================================================================
-   98  00D8   02 DF             .VECTOR  0D8H, EX_INT7
-   99  00DA   02 D9             .VECTOR  0DAH, EX_INT6
-  100  00DC   02 D3             .VECTOR  0DCH, EX_INT5
-  101  00DE   02 CD             .VECTOR  0DEH, EX_INT4
-  102  00E0   03 2E             .VECTOR  0E0H, IIC_INT
-  103  00E2   03 22             .VECTOR  0E2H, UART_RV_INT
-  104  00E4   03 17             .VECTOR  0E4H, UART_TRS_INT
-  105  00E6   03 31             .VECTOR  0E6H, WDT_INT
-  106  00E8   03 0F             .VECTOR  0E8H, LVD_INT
-  107  00EA   03 07             .VECTOR  0EAH, TIMER1_OVF_INT
-  108  00EC   02 FF             .VECTOR  0ECH, TIMER1_MC_INT
-  109  00F0   02 F1             .VECTOR  0F0H, PWM1_OVF_INT
-  110  00F2   02 F9             .VECTOR  0F2H, PWM0_OVF_INT
-  111  00F4   02 EB             .VECTOR  0F4H, TB_MC_INT
-  112  00F6   02 E5             .VECTOR  0F6H, T0_A_MC_INT
-  113  00F8   02 C7             .VECTOR  0F8H, EX_INT3
-  114  00FA   02 C1             .VECTOR  0FAH, EX_INT2
-  115  00FC   02 BB             .VECTOR  0FCH, EX_INT1
-  116  00FE   02 B5             .VECTOR  0FEH, EX_INT0
+   98  00D8   03 64             .VECTOR  0D8H, EX_INT7
+   99  00DA   03 5E             .VECTOR  0DAH, EX_INT6
+  100  00DC   03 58             .VECTOR  0DCH, EX_INT5
+  101  00DE   03 52             .VECTOR  0DEH, EX_INT4
+  102  00E0   03 B3             .VECTOR  0E0H, IIC_INT
+  103  00E2   03 A7             .VECTOR  0E2H, UART_RV_INT
+  104  00E4   03 9C             .VECTOR  0E4H, UART_TRS_INT
+  105  00E6   03 B6             .VECTOR  0E6H, WDT_INT
+  106  00E8   03 94             .VECTOR  0E8H, LVD_INT
+  107  00EA   03 8C             .VECTOR  0EAH, TIMER1_OVF_INT
+  108  00EC   03 84             .VECTOR  0ECH, TIMER1_MC_INT
+  109  00F0   03 76             .VECTOR  0F0H, PWM1_OVF_INT
+  110  00F2   03 7E             .VECTOR  0F2H, PWM0_OVF_INT
+  111  00F4   03 70             .VECTOR  0F4H, TB_MC_INT
+  112  00F6   03 6A             .VECTOR  0F6H, T0_A_MC_INT
+  113  00F8   03 4C             .VECTOR  0F8H, EX_INT3
+  114  00FA   03 46             .VECTOR  0FAH, EX_INT2
+  115  00FC   03 40             .VECTOR  0FCH, EX_INT1
+  116  00FE   03 3A             .VECTOR  0FEH, EX_INT0
   117                    ;;=======================================================================
   118                    ;;==                                                                   ==
   119                    ;;==            RESET and Initialization code                          ==
@@ -709,7 +709,7 @@ Tue Sep 10 17:48:19 2013
   701  0284              TASK_RX:
   702  0284   E5 01 C0           LD      R0,@uart_rx_data
   703  0287   A6 C0 02           CP      R0,#02H                                 ; STX
-  704  028A   ED 02 B4           JP      NE,DISCARD_DATA
+  704  028A   ED 03 39           JP      NE,DISCARD_DATA
   705                            
   706                            ;LD      R0,#01H
   707                            ;LD      R1,#00H
@@ -723,7 +723,7 @@ Tue Sep 10 17:48:19 2013
   715  0297   04 01 C1           ADD     R1,uart_rx_data
   716  029A   C7 01              LD      R0,@R1
   717  029C   A6 C0 03           CP      R0,#03H                                 ; ETX
-  718  029F   ED 02 B4           JP      NE,DISCARD_DATA
+  718  029F   ED 03 39           JP      NE,DISCARD_DATA
   719                            
   720                            ;ADD     R10,#04H
   721                            ;LD      R0,#3FH
@@ -738,174 +738,236 @@ Tue Sep 10 17:48:19 2013
   730                            ;DJNZ    R10,UART_RX_ECHO
   731  02AA   A2 2F              CP      R2,R15
   732  02AC   3D 02 A4           JP      ULE,UART_RX_ECHO
-  733                            
-  734  02AF   F6 01 F0           CALL    UART_RX_DATA_INIT
-  735                            
-  736  02B2   F8 01              LD      R15,uart_rx_data
-  737  02B4              DISCARD_DATA:
-  738                            ;CALL    UART_RX_DATA_INIT
-  739                            
-  740  02B4   AF                 RET                                                                                                                                                                                                                                     
-  741                    ;;=======================================================================
-  742                    ;;==      INTERRUPT SERVICE ROUTINE                                    ==
-  743                    ;;==                                                                   ==
-  744                    ;;==                                                                   == 
-  745                    ;;=======================================================================                                                                                
-  746                           ;;----------------------------------------
-  747                           ;;     external interrupt 0
-  748                           ;;----------------------------------------
-  749  02B5              EX_INT0:
-  750  02B5   56 E8 FF          AND     P0PND, #11111111B                       ;clear pending bit
-  751  02B8   8D 03 37          JP      INT_ISR_END        
-  752                           ;;----------------------------------------
-  753                           ;;     external interrupt 1
-  754                           ;;----------------------------------------
-  755  02BB              EX_INT1:
-  756  02BB   56 E8 FF           AND     P0PND, #11111111B                       ;clear pending bit
-  757  02BE   8D 03 37           JP      INT_ISR_END
-  758                           ;;----------------------------------------
-  759                           ;;     external interrupt 2
-  760                           ;;----------------------------------------
-  761  02C1              EX_INT2:
-  762                            ;XOR     P0,#00100000B                           ;toggle P0.5 
-  763  02C1   56 E8 EF           AND     P0PND, #11101111B                       ;clear pending bit
-  764  02C4   8D 03 37           JP      INT_ISR_END
-  765                            ;;----------------------------------------
-  766                           ;;     external interrupt 3
-  767                           ;;----------------------------------------
-  768  02C7              EX_INT3:
-  769                            ;XOR     P0,#00010000B                           ;toggle P0.4 
-  770  02C7   56 E8 BF           AND     P0PND, #10111111B                       ;clear pending bit
-  771  02CA   8D 03 37           JP      INT_ISR_END
-  772                            ;;----------------------------------------
-  773                           ;;     external interrupt 4
-  774                           ;;----------------------------------------
-  775  02CD              EX_INT4:
-  776                            ;XOR     P0,#10000000B                           ;toggle P0.7 
-  777  02CD   56 EF FE           AND     P3PND, #11111110B                       ;clear pending bit
-  778  02D0   8D 03 37           JP      INT_ISR_END
-  779                            ;;----------------------------------------
-  780                           ;;     external interrupt 5
-  781                           ;;----------------------------------------
-  782  02D3              EX_INT5:
-  783                            ;XOR     P0,#01000000B                           ;toggle P0.6 
-  784  02D3   56 EF FB           AND     P3PND, #11111011B                       ;clear pending bit
-  785  02D6   8D 03 37           JP      INT_ISR_END
-  786                            ;;----------------------------------------
-  787                           ;;     external interrupt 6
-  788                           ;;----------------------------------------
-  789  02D9              EX_INT6:
-  790                            ;XOR     P0,#00100000B                           ;toggle P0.5 
-  791  02D9   56 EF EF           AND     P3PND, #11101111B                       ;clear pending bit
-  792  02DC   8D 03 37           JP      INT_ISR_END
-  793                            ;;----------------------------------------
-  794                           ;;     external interrupt 7
-  795                           ;;----------------------------------------
-  796  02DF              EX_INT7:
-  797                            ;XOR     P0,#00010000B                           ;toggle P0.4 
-  798  02DF   56 EF BF           AND     P3PND, #10111111B                       ;clear pending bit
-  799  02E2   8D 03 37           JP      INT_ISR_END
-  800                            
-  801                           ;;----------------------------------------
-  802                           ;;     Timer0/A match interrupt
-  803                           ;;----------------------------------------  
-  804  02E5              T0_A_MC_INT:
-  805                            ;XOR     P0,#10000000B                           ;toggle P0.7
-  806  02E5   56 D2 FE           AND     TACON,#11111110B                        ;clear pending bit
-  807  02E8   8D 03 37           JP      INT_ISR_END 
+  733                    
+  734                            ; check "ON x" command to turn on LED
+  735  02AF   08 01              LD      R0,uart_rx_data
+  736  02B1   06 C0 02           ADD     R0,#02H
+  737  02B4   C7 10              LD      R1,@R0
+  738  02B6   A6 C1 04           CP      R1,#04H
+  739  02B9   ED 02 ED           JP      NE,INVALID_ON_CMD
+  740  02BC   0E                 INC     R0
+  741  02BD   C7 10              LD      R1,@R0
+  742  02BF   A6 C1 4F           CP      R1,#4FH
+  743  02C2   ED 02 ED           JP      NE,INVALID_ON_CMD
+  744  02C5   0E                 INC     R0
+  745  02C6   C7 10              LD      R1,@R0
+  746  02C8   A6 C1 4E           CP      R1,#4EH
+  747  02CB   ED 02 ED           JP      NE,INVALID_ON_CMD
+  748  02CE   0E                 INC     R0
+  749  02CF   C7 10              LD      R1,@R0
+  750  02D1   A6 C1 20           CP      R1,#20H
+  751  02D4   ED 02 ED           JP      NE,INVALID_ON_CMD
+  752  02D7   0E                 INC     R0
+  753  02D8   C7 10              LD      R1,@R0
+  754  02DA   A6 C1 30           CP      R1,#30H
+  755  02DD   3D 02 ED           JP      ULE,INVALID_ON_CMD
+  756  02E0   A6 C1 34           CP      R1,#34H
+  757  02E3   BD 02 ED           JP      UGT,INVALID_ON_CMD
+  758  02E6   0C 01              LD      R0,#01H
+  759  02E8   1C 00              LD      R1,#00H
+  760  02EA   F6 02 1E           CALL    PWM0
+  761  02ED              INVALID_ON_CMD:
+  762                    
+  763                            ; check "OFF x" command to turn on LED
+  764  02ED   08 01              LD      R0,uart_rx_data
+  765  02EF   06 C0 02           ADD     R0,#02H
+  766  02F2   C7 10              LD      R1,@R0
+  767  02F4   A6 C1 05           CP      R1,#05H
+  768  02F7   ED 03 34           JP      NE,INVALID_OFF_CMD
+  769  02FA   0E                 INC     R0
+  770  02FB   C7 10              LD      R1,@R0
+  771  02FD   A6 C1 4F           CP      R1,#4FH
+  772  0300   ED 03 34           JP      NE,INVALID_OFF_CMD
+  773  0303   0E                 INC     R0
+  774  0304   C7 10              LD      R1,@R0
+  775  0306   A6 C1 46           CP      R1,#46H
+  776  0309   ED 03 34           JP      NE,INVALID_OFF_CMD
+  777  030C   0E                 INC     R0
+  778  030D   C7 10              LD      R1,@R0
+  779  030F   A6 C1 46           CP      R1,#46H
+  780  0312   ED 03 34           JP      NE,INVALID_OFF_CMD
+  781  0315   0E                 INC     R0
+  782  0316   C7 10              LD      R1,@R0
+  783  0318   A6 C1 20           CP      R1,#20H
+  784  031B   ED 03 34           JP      NE,INVALID_OFF_CMD
+  785  031E   0E                 INC     R0
+  786  031F   C7 10              LD      R1,@R0
+  787  0321   A6 C1 30           CP      R1,#30H
+  788  0324   3D 03 34           JP      ULE,INVALID_OFF_CMD
+  789  0327   A6 C1 34           CP      R1,#34H
+  790  032A   BD 03 34           JP      UGT,INVALID_OFF_CMD
+  791  032D   0C 00              LD      R0,#00H
+  792  032F   1C 00              LD      R1,#00H
+  793  0331   F6 02 1E           CALL    PWM0
+  794  0334              INVALID_OFF_CMD:
+  795                                            
+  796  0334   F6 01 F0           CALL    UART_RX_DATA_INIT
+  797                            
+  798  0337   F8 01              LD      R15,uart_rx_data
+  799  0339              DISCARD_DATA:
+  800                            ;CALL    UART_RX_DATA_INIT
+  801                            
+  802  0339   AF                 RET                                                                                                                                                                                                                                     
+  803                    ;;=======================================================================
+  804                    ;;==      INTERRUPT SERVICE ROUTINE                                    ==
+  805                    ;;==                                                                   ==
+  806                    ;;==                                                                   == 
+  807                    ;;=======================================================================                                                                                
   808                           ;;----------------------------------------
-  809                           ;;     TimerB match interrupt
-  810                           ;;---------------------------------------- 
-  811  02EB              TB_MC_INT:
-  812                            ;XOR     P0,#01000000B                           ;toggle P0.6
-  813  02EB   56 EE FE           AND     TBCON,#11111110B                        ;clear pending bit
-  814  02EE   8D 03 37           JP      INT_ISR_END
-  815                           ;;----------------------------------------
-  816                           ;;     PWM1 Overflow interrupt 
-  817                           ;;----------------------------------------
-  818  02F1              PWM1_OVF_INT:
-  819                            ;XOR     P0,#01000000B                           ;toggle P0.6
-  820  02F1   5F                 SB1
-  821  02F2   56 E8 F6           AND     PWM1CON,#11110110B                       ;clear pending bit
-  822  02F5   4F                 SB0
-  823  02F6   8D 03 37           JP      INT_ISR_END
-  824                           ;;----------------------------------------
-  825                           ;;     PWM0 Overflow interrupt 
-  826                           ;;----------------------------------------
-  827  02F9              PWM0_OVF_INT:
-  828                            ;XOR     P0,#00100000B                           ;toggle P0.5
-  829  02F9   56 F3 F6           AND     PWM0CON,#11110110B                       ;clear pending bit
-  830  02FC   8D 03 37           JP      INT_ISR_END
-  831                           ;;----------------------------------------
-  832                           ;;     Timer1 match interrupt
-  833                           ;;----------------------------------------  
-  834  02FF              TIMER1_MC_INT:
-  835                            ;XOR     P0,#00100000B                            ;toggle P0.5
-  836  02FF   5F                 SB1
-  837  0300   56 E4 FE           AND     T1CON,#11111110B                         ;clear pending bit
-  838  0303   4F                 SB0
-  839  0304   8D 03 37           JP      INT_ISR_END 
-  840                           ;;----------------------------------------
-  841                           ;;     Timer1 Overflow interrupt
-  842                           ;;----------------------------------------  
-  843  0307              TIMER1_OVF_INT:
-  844                            ;XOR     P0,#00010000B                            ;toggle P0.4
-  845  0307   5F                 SB1
-  846  0308   56 E4 FB           AND     T1CON,#11111011B                         ;clear pending bit
-  847  030B   4F                 SB0
-  848  030C   8D 03 37           JP      INT_ISR_END
-  849                           ;;----------------------------------------
-  850                           ;;     Low voltage detector interrupt
-  851                           ;;---------------------------------------- 
-  852  030F              LVD_INT:
-  853                            ;SB0
-  854                            ;AND      P0,#11110111B                            ;light P0.3
-  855  030F   5F                 SB1
-  856  0310   56 F4 EF           AND     LVDCON, #11101111B                       ;disable interrupt
-  857  0313   4F                 SB0
-  858  0314   8D 03 37           JP      INT_ISR_END              
-  859                           ;;----------------------------------------
-  860                           ;;     UART interrupt
-  861                           ;;---------------------------------------- 
-  862  0317              UART_TRS_INT:
-  863  0317   5F                 SB1
-  864  0318   56 00 FE           AND     uart_status,#11111110B
-  865  031B   56 F6 FE           AND     UARTPND, #11111110B                      ;clear pending bit
-  866  031E   4F                 SB0
-  867  031F   8D 03 37           JP      INT_ISR_END
-  868  0322              UART_RV_INT:
-  869  0322   5F                 SB1
-  870  0323   F5 F8 CF           LD      @R15,UDATA
-  871  0326   FE                 INC     R15
-  872  0327   56 F6 FD           AND     UARTPND, #11111101B                      ;clear pending bit
-  873  032A   4F                 SB0
-  874  032B   8D 03 37           JP      INT_ISR_END
-  875                           ;;----------------------------------------
-  876                           ;;     IIC interrupt
-  877                           ;;---------------------------------------- 
-  878  032E              IIC_INT:
-  879  032E   8D 03 37           JP      INT_ISR_END
-  880                           ;;----------------------------------------
-  881                           ;;     Watchdog  interrupt
-  882                           ;;---------------------------------------- 
-  883  0331              WDT_INT:
-  884                            ;XOR     P3,#00000001B                           ;toggle P3.0
-  885                            ;AND      WDTCON, #10111111B                    ;disable reset, clear counter
-  886  0331   46 F6 10           OR      WDTCON, #00010000B                      ;clear counter.      
-  887  0334   8D 03 37           JP      INT_ISR_END       
-  888                    
-  889                    
-  890                    
-  891                           ;;----------------------------------------
-  892                           ;;     interrupt service end
-  893                           ;;----------------------------------------        
-  894  0337              INT_ISR_END:                
-  895  0337   BF                IRET
-  896                           
-  897  0338              .END                                                          
+  809                           ;;     external interrupt 0
+  810                           ;;----------------------------------------
+  811  033A              EX_INT0:
+  812  033A   56 E8 FF          AND     P0PND, #11111111B                       ;clear pending bit
+  813  033D   8D 03 BC          JP      INT_ISR_END        
+  814                           ;;----------------------------------------
+  815                           ;;     external interrupt 1
+  816                           ;;----------------------------------------
+  817  0340              EX_INT1:
+  818  0340   56 E8 FF           AND     P0PND, #11111111B                       ;clear pending bit
+  819  0343   8D 03 BC           JP      INT_ISR_END
+  820                           ;;----------------------------------------
+  821                           ;;     external interrupt 2
+  822                           ;;----------------------------------------
+  823  0346              EX_INT2:
+  824                            ;XOR     P0,#00100000B                           ;toggle P0.5 
+  825  0346   56 E8 EF           AND     P0PND, #11101111B                       ;clear pending bit
+  826  0349   8D 03 BC           JP      INT_ISR_END
+  827                            ;;----------------------------------------
+  828                           ;;     external interrupt 3
+  829                           ;;----------------------------------------
+  830  034C              EX_INT3:
+  831                            ;XOR     P0,#00010000B                           ;toggle P0.4 
+  832  034C   56 E8 BF           AND     P0PND, #10111111B                       ;clear pending bit
+  833  034F   8D 03 BC           JP      INT_ISR_END
+  834                            ;;----------------------------------------
+  835                           ;;     external interrupt 4
+  836                           ;;----------------------------------------
+  837  0352              EX_INT4:
+  838                            ;XOR     P0,#10000000B                           ;toggle P0.7 
+  839  0352   56 EF FE           AND     P3PND, #11111110B                       ;clear pending bit
+  840  0355   8D 03 BC           JP      INT_ISR_END
+  841                            ;;----------------------------------------
+  842                           ;;     external interrupt 5
+  843                           ;;----------------------------------------
+  844  0358              EX_INT5:
+  845                            ;XOR     P0,#01000000B                           ;toggle P0.6 
+  846  0358   56 EF FB           AND     P3PND, #11111011B                       ;clear pending bit
+  847  035B   8D 03 BC           JP      INT_ISR_END
+  848                            ;;----------------------------------------
+  849                           ;;     external interrupt 6
+  850                           ;;----------------------------------------
+  851  035E              EX_INT6:
+  852                            ;XOR     P0,#00100000B                           ;toggle P0.5 
+  853  035E   56 EF EF           AND     P3PND, #11101111B                       ;clear pending bit
+  854  0361   8D 03 BC           JP      INT_ISR_END
+  855                            ;;----------------------------------------
+  856                           ;;     external interrupt 7
+  857                           ;;----------------------------------------
+  858  0364              EX_INT7:
+  859                            ;XOR     P0,#00010000B                           ;toggle P0.4 
+  860  0364   56 EF BF           AND     P3PND, #10111111B                       ;clear pending bit
+  861  0367   8D 03 BC           JP      INT_ISR_END
+  862                            
+  863                           ;;----------------------------------------
+  864                           ;;     Timer0/A match interrupt
+  865                           ;;----------------------------------------  
+  866  036A              T0_A_MC_INT:
+  867                            ;XOR     P0,#10000000B                           ;toggle P0.7
+  868  036A   56 D2 FE           AND     TACON,#11111110B                        ;clear pending bit
+  869  036D   8D 03 BC           JP      INT_ISR_END 
+  870                           ;;----------------------------------------
+  871                           ;;     TimerB match interrupt
+  872                           ;;---------------------------------------- 
+  873  0370              TB_MC_INT:
+  874                            ;XOR     P0,#01000000B                           ;toggle P0.6
+  875  0370   56 EE FE           AND     TBCON,#11111110B                        ;clear pending bit
+  876  0373   8D 03 BC           JP      INT_ISR_END
+  877                           ;;----------------------------------------
+  878                           ;;     PWM1 Overflow interrupt 
+  879                           ;;----------------------------------------
+  880  0376              PWM1_OVF_INT:
+  881                            ;XOR     P0,#01000000B                           ;toggle P0.6
+  882  0376   5F                 SB1
+  883  0377   56 E8 F6           AND     PWM1CON,#11110110B                       ;clear pending bit
+  884  037A   4F                 SB0
+  885  037B   8D 03 BC           JP      INT_ISR_END
+  886                           ;;----------------------------------------
+  887                           ;;     PWM0 Overflow interrupt 
+  888                           ;;----------------------------------------
+  889  037E              PWM0_OVF_INT:
+  890                            ;XOR     P0,#00100000B                           ;toggle P0.5
+  891  037E   56 F3 F6           AND     PWM0CON,#11110110B                       ;clear pending bit
+  892  0381   8D 03 BC           JP      INT_ISR_END
+  893                           ;;----------------------------------------
+  894                           ;;     Timer1 match interrupt
+  895                           ;;----------------------------------------  
+  896  0384              TIMER1_MC_INT:
+  897                            ;XOR     P0,#00100000B                            ;toggle P0.5
+  898  0384   5F                 SB1
+  899  0385   56 E4 FE           AND     T1CON,#11111110B                         ;clear pending bit
+  900  0388   4F                 SB0
+  901  0389   8D 03 BC           JP      INT_ISR_END 
+  902                           ;;----------------------------------------
+  903                           ;;     Timer1 Overflow interrupt
+  904                           ;;----------------------------------------  
+  905  038C              TIMER1_OVF_INT:
+  906                            ;XOR     P0,#00010000B                            ;toggle P0.4
+  907  038C   5F                 SB1
+  908  038D   56 E4 FB           AND     T1CON,#11111011B                         ;clear pending bit
+  909  0390   4F                 SB0
+  910  0391   8D 03 BC           JP      INT_ISR_END
+  911                           ;;----------------------------------------
+  912                           ;;     Low voltage detector interrupt
+  913                           ;;---------------------------------------- 
+  914  0394              LVD_INT:
+  915                            ;SB0
+  916                            ;AND      P0,#11110111B                            ;light P0.3
+  917  0394   5F                 SB1
+  918  0395   56 F4 EF           AND     LVDCON, #11101111B                       ;disable interrupt
+  919  0398   4F                 SB0
+  920  0399   8D 03 BC           JP      INT_ISR_END              
+  921                           ;;----------------------------------------
+  922                           ;;     UART interrupt
+  923                           ;;---------------------------------------- 
+  924  039C              UART_TRS_INT:
+  925  039C   5F                 SB1
+  926  039D   56 00 FE           AND     uart_status,#11111110B
+  927  03A0   56 F6 FE           AND     UARTPND, #11111110B                      ;clear pending bit
+  928  03A3   4F                 SB0
+  929  03A4   8D 03 BC           JP      INT_ISR_END
+  930  03A7              UART_RV_INT:
+  931  03A7   5F                 SB1
+  932  03A8   F5 F8 CF           LD      @R15,UDATA
+  933  03AB   FE                 INC     R15
+  934  03AC   56 F6 FD           AND     UARTPND, #11111101B                      ;clear pending bit
+  935  03AF   4F                 SB0
+  936  03B0   8D 03 BC           JP      INT_ISR_END
+  937                           ;;----------------------------------------
+  938                           ;;     IIC interrupt
+  939                           ;;---------------------------------------- 
+  940  03B3              IIC_INT:
+  941  03B3   8D 03 BC           JP      INT_ISR_END
+  942                           ;;----------------------------------------
+  943                           ;;     Watchdog  interrupt
+  944                           ;;---------------------------------------- 
+  945  03B6              WDT_INT:
+  946                            ;XOR     P3,#00000001B                           ;toggle P3.0
+  947                            ;AND      WDTCON, #10111111B                    ;disable reset, clear counter
+  948  03B6   46 F6 10           OR      WDTCON, #00010000B                      ;clear counter.      
+  949  03B9   8D 03 BC           JP      INT_ISR_END       
+  950                    
+  951                    
+  952                    
+  953                           ;;----------------------------------------
+  954                           ;;     interrupt service end
+  955                           ;;----------------------------------------        
+  956  03BC              INT_ISR_END:                
+  957  03BC   BF                IRET
+  958                           
+  959  03BD              .END                                                          
 
 
-Total 891 Lines Assembled - 0 Errors, 0 Warnings
-Total code size 0x262
+Total 953 Lines Assembled - 0 Errors, 0 Warnings
+Total code size 0x2E7
 
 

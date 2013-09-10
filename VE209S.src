@@ -724,7 +724,69 @@ UART_RX_ECHO:
         ;DJNZ    R10,UART_RX_ECHO
         CP      R2,R15
         JP      ULE,UART_RX_ECHO
-        
+
+        ; check "ON x" command to turn on LED
+        LD      R0,uart_rx_data
+        ADD     R0,#02H
+        LD      R1,@R0
+        CP      R1,#04H
+        JP      NE,INVALID_ON_CMD
+        INC     R0
+        LD      R1,@R0
+        CP      R1,#4FH
+        JP      NE,INVALID_ON_CMD
+        INC     R0
+        LD      R1,@R0
+        CP      R1,#4EH
+        JP      NE,INVALID_ON_CMD
+        INC     R0
+        LD      R1,@R0
+        CP      R1,#20H
+        JP      NE,INVALID_ON_CMD
+        INC     R0
+        LD      R1,@R0
+        CP      R1,#30H
+        JP      ULE,INVALID_ON_CMD
+        CP      R1,#34H
+        JP      UGT,INVALID_ON_CMD
+        LD      R0,#01H
+        LD      R1,#00H
+        CALL    PWM0
+INVALID_ON_CMD:
+
+        ; check "OFF x" command to turn on LED
+        LD      R0,uart_rx_data
+        ADD     R0,#02H
+        LD      R1,@R0
+        CP      R1,#05H
+        JP      NE,INVALID_OFF_CMD
+        INC     R0
+        LD      R1,@R0
+        CP      R1,#4FH
+        JP      NE,INVALID_OFF_CMD
+        INC     R0
+        LD      R1,@R0
+        CP      R1,#46H
+        JP      NE,INVALID_OFF_CMD
+        INC     R0
+        LD      R1,@R0
+        CP      R1,#46H
+        JP      NE,INVALID_OFF_CMD
+        INC     R0
+        LD      R1,@R0
+        CP      R1,#20H
+        JP      NE,INVALID_OFF_CMD
+        INC     R0
+        LD      R1,@R0
+        CP      R1,#30H
+        JP      ULE,INVALID_OFF_CMD
+        CP      R1,#34H
+        JP      UGT,INVALID_OFF_CMD
+        LD      R0,#00H
+        LD      R1,#00H
+        CALL    PWM0
+INVALID_OFF_CMD:
+                        
         CALL    UART_RX_DATA_INIT
         
         LD      R15,uart_rx_data
