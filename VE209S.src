@@ -33,7 +33,9 @@
 ;;==                RAM ASSIGNMENT                                     ==
 ;;==                                                                   == 
 ;;=======================================================================
-uart_status      EQU     00H
+uart_status     EQU     00H
+uart_rx_data    EQU     01H     ; reserve 50 bytes for uart rx data
+
 
         .ORG    0000H
 ;;=======================================================================
@@ -262,7 +264,7 @@ RESET:
                                         ; 0 1 = Alternative function: ADC Input
                                         ; 1 0 = Push-pull output
                                         ; 1 1 = Invalid
-         LD     P2CONL,#01011010B       ; Port 2 Control Register (Low Byte)
+         LD     P2CONL,#01001010B       ; Port 2 Control Register (Low Byte)
                                         ; [.7-.6] Port 2, P2.3/TxD Configuration Bits
                                         ; 0 0 = Schmitt trigger input
                                         ; 0 1 = Alternative function: TxD output
@@ -409,6 +411,27 @@ RESET:
         LD      PWM0DATA,#00H
         
         LD      uart_status,#00H
+
+        CALL    UART_RX_DATA_INIT
+        
+        CLR     R0
+        CLR     R1
+        CLR     R2
+        CLR     R3
+        CLR     R4
+        CLR     R5
+        CLR     R6
+        CLR     R7
+        CLR     R8
+        CLR     R9
+        CLR     R10
+        CLR     R11
+        CLR     R12
+        CLR     R13
+        CLR     R14
+        CLR     R15
+        
+        LD      R15,uart_rx_data
         
         EI
 
@@ -420,21 +443,10 @@ RESET:
 MAIN::
         OR      BTCON,#02H              ; Enable watchdog function
                                         ; Basic counter (BTCNT) clear
-                                        
-                                        
+
+        CALL    TASK_RX 
         
-        
-        LD      R0,#01H
-        LD      R1,#00H
-        CALL    PWM0                           
-        
-        CALL    DELAY_10s
-        
-        LD      R0,#3FH
-        LD      R1,#00H
-        CALL    PWM0
-        
-        CALL    DELAY_10s
+        ;CALL    DELAY_10s
                                                                     
         JP      MAIN                                
 
@@ -548,7 +560,23 @@ DELAY_LOOP_10s_R4:
         POP     R1
         
         RET
-                                
+        
+UART_RX_DATA_INIT:
+        PUSH    R0
+        PUSH    R1
+        LD      R0,uart_rx_data
+        LD      R1,#00H
+UART_RX_DATA_INIT_LOOP:
+        CLR     @R0
+        INC     R0
+        INC     R1
+        CP      R1,#032H
+        JR      ULE,UART_RX_DATA_INIT_LOOP
+        POP     R1
+        POP     R0
+        
+        RET
+                                                                        
 UART_TX:
         PUSH    R1
 UART_TX_CHECK:
@@ -599,7 +627,111 @@ VE209S_TRS:
         LD      R0,#03H
         CALL    UART_TX
         
-        RET                                                                                                                                                                                                                                           
+        RET     
+
+;;----------------------------------------
+;;   store data
+;;   R4 - high address of flash
+;;   R5 - low address of flash
+;;   R6 - start address of data
+;;   R7 - data length
+;;----------------------------------------
+STORE_DATA:
+        DI        
+;;----------------------------------------
+;;   erase one sector
+;;----------------------------------------
+FULL_FLASH_ERASE:
+        SB1
+        LD      FMUSR,#0A5H                             ; Flash Memory User Programming Enable Register
+                                                        ; 10100101 = Enable user programming mode
+                                                        ; Other values: Disable user programming mode
+        LD      FMSECH,R4                               ; high address
+        LD      FMSECL,R5                               ; low address.
+        LD      FMCON,#10100001B                        ; Flash Memory Control Register
+                                                        ; bit 7-4: Flash Memory Mode Selection Bits
+                                                        ; 0101 = Programming mode
+                                                        ; 1010 = Erase mode
+                                                        ; 0110 = Hard lock mode
+                                                        ; Others = Not used for S3F8S24
+                                                        ; bit 3-1: Not used for S3F8S28/F8S24
+                                                        ; bit 0: Flash (Erase or Hard Lock Protection) Operation Start Bit
+                                                        ; 0 = Operation stop
+                                                        ; 1 = Operation start (This bit will be cleared automatically just after erase operation.)
+        CALL    DELAY_1ms
+        CALL    DELAY_1ms
+        CALL    DELAY_1ms
+        CALL    DELAY_1ms
+        CALL    DELAY_1ms
+        
+        ;LD      FMUSR,#00H                              ;return to normal mode
+        ;SB0
+;;----------------------------------------
+;;   write data to sector
+;;----------------------------------------
+FULL_FLASH_WRITE:  
+        ;SB1
+        ;LD      FMSECH,#0EH                             ;set sector address
+        ;LD      FMSECL,#00H
+        ;LD      R4,#0EH
+        ;LD      R5,#00H
+        LD      R8,#00H
+        ;LD      FMUSR,#0A5H                             ;enter user mode 
+        LD      FMCON,#01010000B                        ;program mode
+Flash_Write_Loop:
+        LD      R0,@R6
+        LDC     @RR4,R0
+        INC     R5
+        INC     R6
+        INC     R8
+        CP      R8,R7
+        JP      NE,Flash_Write_Loop
+        LD      FMUSR, #00H                             ;return to normal mode
+        SB0
+        EI
+        
+        RET
+
+TASK_RX:
+        LD      R0,@uart_rx_data
+        CP      R0,#02H                                 ; STX
+        JP      NE,DISCARD_DATA
+        
+        ;LD      R0,#01H
+        ;LD      R1,#00H
+        ;CALL    PWM0
+        
+        LD      R0,uart_rx_data
+        ADD     R0,#02H
+        LD      R1,@R0
+        ;LD      R10,@R0
+        ADD     R1,#03H
+        ADD     R1,uart_rx_data
+        LD      R0,@R1
+        CP      R0,#03H                                 ; ETX
+        JP      NE,DISCARD_DATA
+        
+        ;ADD     R10,#04H
+        ;LD      R0,#3FH
+        ;LD      R1,#00H
+        ;CALL    PWM0
+
+        LD      R2,uart_rx_data
+UART_RX_ECHO:        
+        LD      R0,@R2
+        CALL    UART_TX
+        INC     R2
+        ;DJNZ    R10,UART_RX_ECHO
+        CP      R2,R15
+        JP      ULE,UART_RX_ECHO
+        
+        CALL    UART_RX_DATA_INIT
+        
+        LD      R15,uart_rx_data
+DISCARD_DATA:
+        ;CALL    UART_RX_DATA_INIT
+        
+        RET                                                                                                                                                                                                                                     
 ;;=======================================================================
 ;;==      INTERRUPT SERVICE ROUTINE                                    ==
 ;;==                                                                   ==
@@ -729,6 +861,8 @@ UART_TRS_INT:
         JP      INT_ISR_END
 UART_RV_INT:
         SB1
+        LD      @R15,UDATA
+        INC     R15
         AND     UARTPND, #11111101B                      ;clear pending bit
         SB0
         JP      INT_ISR_END
