@@ -1,0 +1,757 @@
+;************************************************************************
+;************************************************************************
+;***********************  8S28 for VE209S    ****************************
+;************************************************************************
+;************************************************************************ 
+;-----------------------File description--------------------------------- 
+;         LED control program for VE209S 
+;         Main function
+;------------------------------------------------------------------------
+;------------------------Function list-----------------------------------
+;    --Function name--   |     --Type--        |       --Description--
+;     SMART OPTION                  sector              Smart option setting
+;     Interrupt vector              sector              Interrupt vector
+;     RESET                         reset function      initialization code
+;     MAIN                          main function       main test function
+;     Interrupt sevice routine      sub function        interrupt sources
+;------------------------------------------------------------------------
+;------------------------File   information------------------------------
+;    @author@:   MA LIYU
+;    @date@:     13-09-04            
+;    @version@:  00             
+;    @change record@:     
+;          --date--       |         --content--         |     --who--
+;         13-09-04                  Creation                    MA LIYU       
+;------------------------------------------------------------------------
+;************************************************************************
+;************************************************************************
+;************************************************************************
+.INCLUDE "S3F8S28.reg"
+
+;;=======================================================================
+;;==                                                                   ==
+;;==                RAM ASSIGNMENT                                     ==
+;;==                                                                   == 
+;;=======================================================================
+uart_status      EQU     00H
+
+        .ORG    0000H
+;;=======================================================================
+;;==                                                                   ==
+;;==                SMART OPTION Setting  ROUTINE                      ==
+;;==                                                                   == 
+;;=======================================================================
+       .ORG  003CH
+       .DB   0FFH
+       .DB   0FFH
+       .DB   11111111B          ;@3EH : ISP options
+                                             ; bit7: Reset vector address change enable/disable
+                                             ;    0-change address   
+                                             ;    1-normal: 100H
+                                             ; bit6~5: reset vector address
+                                             ;      @00B---200H         
+                                             ;      @01B---300H
+                                             ;      @10B---500H
+                                             ;      @11B---900H
+                                             ; bit4-3: not used
+                                             ; bit2: ISP protection enable/disable
+                                             ;    1-disable  
+                                             ;    0-enable
+                                             ; bit1-0: ISP protection size
+                                             ;      @00B---256B         
+                                             ;      @01B---512B
+                                             ;      @10B---1024B
+                                             ;      @11B---2048B        
+       .DB   10001111B          ;@3FH :LVR, level, P1.2; OSC;
+                                             ; bit 7: LVR Enable/disable
+                                             ;    0-disable  
+                                             ;    1-enable
+                                             ; bit 6-5: LVR level
+                                             ;      @00B---1.9V         
+                                             ;      @01B---2.3V
+                                             ;      @10B---3.0V
+                                             ;      @11B---3.9V
+                                             ; bit 4: P1.2/RESET pin selection
+                                             ;    0-P1.2 pin enable  
+                                             ;    1-RESET Pin enable
+                                             ; bit 3-0: Oscillator selection bit
+                                             ;      @0100B---External LG OSC         
+                                             ;      @1100B---External HG OSC
+                                             ;      @1010B---internal RC(1 M)
+                                             ;      @1111B---internal RC(8 M)
+                                             ;      @1000B---internal RC(0.5 M)
+                                             ;      @1001B---internal RC(2 M)
+                                             ;      @1011B---internal RC(4 M)
+;;=======================================================================
+;;==                                                                   ==
+;;==            INTERRUPT VECTOR                                       ==
+;;==                                                                   == 
+;;=======================================================================
+       .VECTOR  0D8H, EX_INT7
+       .VECTOR  0DAH, EX_INT6
+       .VECTOR  0DCH, EX_INT5
+       .VECTOR  0DEH, EX_INT4
+       .VECTOR  0E0H, IIC_INT
+       .VECTOR  0E2H, UART_RV_INT
+       .VECTOR  0E4H, UART_TRS_INT
+       .VECTOR  0E6H, WDT_INT
+       .VECTOR  0E8H, LVD_INT
+       .VECTOR  0EAH, TIMER1_OVF_INT
+       .VECTOR  0ECH, TIMER1_MC_INT
+       .VECTOR  0F0H, PWM1_OVF_INT
+       .VECTOR  0F2H, PWM0_OVF_INT
+       .VECTOR  0F4H, TB_MC_INT
+       .VECTOR  0F6H, T0_A_MC_INT
+       .VECTOR  0F8H, EX_INT3
+       .VECTOR  0FAH, EX_INT2
+       .VECTOR  0FCH, EX_INT1
+       .VECTOR  0FEH, EX_INT0
+;;=======================================================================
+;;==                                                                   ==
+;;==            RESET and Initialization code                          ==
+;;==                                                                   == 
+;;=======================================================================
+
+       .ORG    0100H
+RESET:
+        DI
+        LD      BTCON,#10100011B        ; bit 7-4: Watchdog timer enable bits
+                                        ; 1010B = Disable watchdog function
+                                        ; Other value = Enable watchdog function
+                                        ; bit 3-2: Basic timer input clock selection bits
+                                        ; 00 = fosc/4096
+                                        ; 01 = fosc/1024
+                                        ; 10 = fosc/128
+                                        ; 11 = Invalid selection 
+                                        ; bit 1: Basic timer counter clear bits
+                                        ; 0 = No effect
+                                        ; 1 = Clear basic timer counter
+                                        ; bit 0: Divider clear bit for basic timer and timer 0
+                                        ; 0 = No effect
+                                        ; 1 = Clear both dividers
+        LD      CLKCON,#00011000B       ; bit 7: Oscillator IRQ wake-up enable bit
+                                        ; 0 = Enable IRQ for main system oscillator wake-up function in power mode.
+                                        ; 1 = Disable IRQ for main system oscillator wake-up function in power down mode.
+                                        ; bit 6-5: not used
+                                        ; bit 4-3: Divide-by selection bits for CPU clock frequency
+                                        ; 00 = fosc/16
+                                        ; 01 = fosc/8
+                                        ; 10 = fosc/2
+                                        ; 11 = fosc (non-divided)
+                                                        ; bit 2-0: not used
+        LD      ROSCCON,#00000000B      ; 
+        LD      SPL,#0FFH               ; SP: FFH (Normally, the SP is set to FFH by the initialization routine) 
+        LD      IPH,#00H
+        LD      IPL,#00H
+        LD      IMR,#11111111B          ; Interrupt level enable bit
+                                        ; bit 7-0 <-> IRQ7-0
+                                        ; 0 = Disable (mask) interrupt level
+                                        ; 1 = Enable (un-mask) interrupt level
+                                        
+                                        ; IRQ0: External interrupt 0/1/2/3
+                                        ; IRQ1: Timer 0/A match interrupt/Timer B match interrupt
+                                        ; IRQ2: PWM0 overflow interrupt/PWM1 overflow interrupt
+                                        ; IRQ3: Timer 1 match/capture interrupt/Timer 1 overflow interrupt
+                                        ; IRQ4: Watchdog interrupt
+                                        ; IRQ5: UART transmit interrupt/UART Receive interrupt
+                                        ; IRQ6: IIC transmit / receive interrupt
+                                        ; IRQ7: External interrupt 4/5/6/7
+        LD      IPR,#11001101B          ; Interrupt Priority Register
+                                        ; bit7/4/1 -> Group priority
+                                        ; 0 0 0 = Undefined
+                                        ; 0 0 1 = B > C > A
+                                        ; 0 1 0 = A > B > C
+                                        ; 0 1 1 = B > A > C
+                                        ; 1 0 0 = C > A > B
+                                        ; 1 0 1 = C > B > A
+                                        ; 1 1 0 = A > C > B
+                                        ; 1 1 1 = Undefined
+                                        ; bit 6 -> Subgroup C
+                                        ; 0 = IRQ6 > IRQ7
+                                        ; 1 = IRQ7 > IRQ6
+                                        ; bit 5 -> Group C 
+                                        ; 0 = IRQ5 > (IRQ6, IRQ7)
+                                        ; 1 = (IRQ6, IRQ7) > IRQ5
+                                        ; bit 3 -> Subgroup B
+                                        ; 0 = IRQ3 > IRQ4
+                                        ; 1 = IRQ4 > IRQ3
+                                        ; bit 2 -> Group B
+                                        ; 0 = IRQ2 > (IRQ3, IRQ4)
+                                        ; 1 = (IRQ3, IRQ4) > IRQ2
+                                        ; bit 0 -> Group A
+                                        ; 0 = IRQ0 > IRQ1
+                                        ; 1 = IRQ1 > IRQ0
+
+        LD      P0CONH,#10011010B       ; Port 0 Control Register (High Byte)
+                                        ; [.7-.6] Port, P0.7/ADC7 Configuration Bits
+                                        ; 0 x = Schmitt trigger input
+                                        ; 1 0 = Push-pull output
+                                        ; 1 1 = A/D converter input (ADC7); schmitt trigger input off
+                                        ; [.5-.4] Port 0, P0.6/ADC6/PWM0 Configuration Bits
+                                        ; 0 0 = Schmitt trigger input
+                                        ; 0 1 = Alternative function: PWM0 output
+                                        ; 1 0 = Push-pull output
+                                        ; 1 1 = A/D converter input (ADC6); schmitt trigger input off
+                                        ; [.3-.2] Port 0, P0.5/ADC5/PWM1 Configuration Bits
+                                        ; 0 0 = Schmitt trigger input
+                                        ; 0 1 = Alternative function: PWM1 output
+                                        ; 1 0 = Push-pull output
+                                        ; 1 1 = A/D converter input (ADC5); schmitt trigger input off
+                                        ; [.1-.0] Port 0, P0.4/ADC4 Configuration Bits
+                                        ; 0 x = Schmitt trigger input
+                                        ; 1 0 = Push-pull output
+                                        ; 1 1 = A/D converter input (ADC4); schmitt trigger input off
+        LD     P0CONL,#10101010B        ; Port 0 Control Register (Low Byte)
+                                        ; [.7-.6] Port 0, P0.3/ADC3/INT3 Configuration Bits
+                                        ; 0 0 = Schmitt trigger input/falling edge interrupt input
+                                        ; 0 1 = Alternative function: SDA
+                                        ; 1 0 = Push-pull output
+                                        ; 1 1 = A/D converter input (ADC3); Schmitt trigger input off
+                                        ; [.5-.4] Port 0, P0.2/ADC2/INT2 Configuration Bits
+                                        ; 0 0 = Schmitt trigger input/falling edge interrupt input
+                                        ; 0 1 = Alternative function: SCK
+                                        ; 1 0 = Push-pull output
+                                        ; 1 1 = A/D converter input (ADC2); Schmitt trigger input off
+                                        ; [.3-.2] Port 0, P0.1/ADC1/INT1 Configuration Bits
+                                        ; 0 x = Schmitt trigger input/falling edge interrupt input
+                                        ; 1 0 = Push-pull output
+                                        ; 1 1 = A/D converter input (ADC1); Schmitt trigger input off
+                                        ; [.1-.0] Port 0, P0.0/ADC0/INT0 Configuration Bits
+                                        ; 0 x = Schmitt trigger input/falling edge interrupt input
+                                        ; 1 0 = Push-pull output
+                                        ; 1 1 = A/D converter input (ADC0); Schmitt trigger input off                                    
+         LD     P0PND,#00000000B        ; Port 0 Interrupt Pending Register
+         ;LD     P0PUR,#11110000B        ; Port 0 Pull-up Resistor Enable Register
+         LD     P1CON,#00011010B        ; Port 1 Control Register
+                                        ; [.7] Port 1.1 N-Channel Open-Drain Enable Bit
+                                        ; 0 = Configure P1.1 as a push-pull output
+                                        ; 1 = Configure P1.1 as a n-channel open-drain output
+                                        ; [.6] Port 1.0 N-Channel Open-Drain Enable Bit
+                                        ; 0 = Configure P1.0 as a push-pull output
+                                        ; 1 = Configure P1.0 as a N-channel open-drain output
+                                        ; [.5] Not used for S3F8S28/F8S24
+                                        ; [.4] Port 1.2 Configuration Bit
+                                        ; 0 = Schmitt trigger input;
+                                        ; 1 = Open-drain output
+                                        ; [.3-.2] Port 1, P1.1 Configuration Bits
+                                        ; 0 0 = Schmitt trigger input;
+                                        ; 0 1 = Schmitt trigger input; pull-up enable
+                                        ; 1 0 = Push-pull output
+                                        ; 1 1 = Schmitt trigger input; pull-down enable
+                                        ; [.1-.0] Port 1, P1.0 Configuration Bits
+                                        ; 0 0 = Schmitt trigger input;
+                                        ; 0 1 = Schmitt trigger input; pull-up enable
+                                        ; 1 0 = Push-pull output
+                                        ; 1 1 = Schmitt trigger input; pull-down enable
+         LD     P2CONH,#01001010B       ; Port 2 Control Register (High Byte)
+                                        ; [.7] Not used in S3F8S28/F8S24
+                                        ; [.6-.4] Port 2, P2.6/ADC8/CLO Configuration Bits
+                                        ; 0 0 x = Schmitt trigger input
+                                        ; 0 1 x = ADC input
+                                        ; 1 0 0 = Push-pull output
+                                        ; 1 0 1 = Open-drain output; pull-up enable
+                                        ; 1 1 0 = Open-drain output
+                                        ; 1 1 1 = Alternative function; CLO output
+                                        ; [.3-.2] Port 2, P2.5/ADC9 Configuration Bits
+                                        ; 0 0 = Schmitt trigger input
+                                        ; 0 1 = Alternative function: ADC Input
+                                        ; 1 0 = Push-pull output
+                                        ; 1 1 = Invalid
+                                        ; [ 1-.0] Port 2, P2.4/ADC10 Configuration Bits
+                                        ; 0 0 = Schmitt trigger input
+                                        ; 0 1 = Alternative function: ADC Input
+                                        ; 1 0 = Push-pull output
+                                        ; 1 1 = Invalid
+         LD     P2CONL,#01011010B       ; Port 2 Control Register (Low Byte)
+                                        ; [.7-.6] Port 2, P2.3/TxD Configuration Bits
+                                        ; 0 0 = Schmitt trigger input
+                                        ; 0 1 = Alternative function: TxD output
+                                        ; 1 0 = Push-pull output
+                                        ; 1 1 = Open-drain output
+                                        ; [.5-.4] Port 2, P2.2/T1CAP/RxD Configuration Bits
+                                        ; 0 0 = Schmitt trigger input; T1 Capture input; RxD input;
+                                        ; 0 1 = Alternative function: RxD output
+                                        ; 1 0 = Push-pull output
+                                        ; 1 1 = Open-drain output
+                                        ; [.3-.2] Port 2, P2.1/T1OUT Configuration Bits
+                                        ; 0 0 = Schmitt trigger input
+                                        ; 0 1 = Alternative function: T1 match output
+                                        ; 1 0 = Push-pull output
+                                        ; 1 1 = Open-drain output
+                                        ; [.1-.0] Port 2, P2.0/T0OUT Configuration Bits
+                                        ; 0 0 = Schmitt trigger input
+                                        ; 0 1 = Alternative function: T0 match output
+                                        ; 1 0 = Push-pull output
+                                        ; 1 1 = Open-drain output
+         LD     P2PUR,#00000000B        ; Port 2 Pull-up Resistor Enable Register
+         ;LD     P3CON,#00000000B        ; Port 3 Control Register
+                                        ; [.7-.6] Port 3, P3.3/INT7 Configuration Bits
+                                        ; 0 0 = Schmitt trigger input / external falling edge interrupt input
+                                        ; 0 1 = Schmitt trigger input with pull-up / external falling edge interrupt input
+                                        ; 1 x = Push-pull output
+                                        ; [.5-.4] Port 3, P3.2/INT6 Configuration Bits
+                                        ; 0 0 = Schmitt trigger input / external falling edge interrupt input
+                                        ; 0 1 = Schmitt trigger input with pull-up / external falling edge interrupt input
+                                        ; 1 x = Push-pull output
+                                        ; [.3-.2] Port 3, P3.1/ADC12/INT5 Configuration Bits
+                                        ; 0 0 = Schmitt trigger input / external falling edge interrupt input
+                                        ; 0 1 = Schmitt trigger input with pull-up / external falling edge interrupt input
+                                        ; 1 0 = Push-pull output
+                                        ; 1 1 = Alternative function: ADC Input
+                                        ; [.1-.0] Port 3, P3.0/ADC11/INT4 Configuration Bits
+                                        ; 0 0 = Schmitt trigger input / external falling edge interrupt input
+                                        ; 0 1 = Schmitt trigger input with pull-up / external falling edge interrupt input
+                                        ; 1 0 = Push-pull output
+                                        ; 1 1 = Alternative function: ADC Input
+        ;LD      P3PND, #000000000B      ; Port 3 Interrupt Pending Register
+                                        ; [.7] Port 3.3/ADC12/INT7, Interrupt Enable Bit
+                                        ; 0 = INT7 falling edge interrupt disable
+                                        ; 1 = INT7 falling edge interrupt enable
+                                        ; [.6] Port 3.3/ADC12/INT7 Interrupt Pending Bit
+                                        ; 0 = No interrupt pending (when read)
+                                        ; 0 = Pending bit clear (when write)
+                                        ; 1 = Interrupt is pending (when read)
+                                        ; 1 = No effect (when write)
+                                        ; [.5] Port 3.2/ADC11/INT6, Interrupt Enable Bit
+                                        ; 0 = INT6 falling edge interrupt disable
+                                        ; 1 = INT6 falling edge interrupt enable
+                                        ; [.4] Port 3.2/ADC11/INT6, Interrupt Pending Bit
+                                        ; 0 = No interrupt pending (when read)
+                                        ; 0 = Pending bit clear (when write)
+                                        ; 1 = Interrupt is pending (when read)
+                                        ; 1 = No effect (when write)
+                                        ; [.3] Port 3.1/ADC10/INT5, Interrupt Enable Bit
+                                        ; 0 = INT5 falling edge interrupt disable
+                                        ; 1 = INT5 falling edge interrupt enable
+                                        ; [.2] Port 3.1/ADC10/INT5, Interrupt Pending Bit
+                                        ; 0 = No interrupt pending (when read)
+                                        ; 0 = Pending bit clear (when write)
+                                        ; 1 = Interrupt is pending (when read)
+                                        ; 1 = No effect (when write)
+                                        ; [.1] Port 3.0/ADC9/INT4, Interrupt Enable Bit
+                                        ; 0 = INT4 falling edge interrupt disable
+                                        ; 1 = INT4 falling edge interrupt enable
+                                        ; [.0] Port 3.0/ADC9/INT4, Interrupt Pending Bit
+                                        ; 0 = No interrupt pending (when read)
+                                        ; 0 = Pending bit clear (when write)
+                                        ; 1 = Interrupt is pending (when read)
+                                        ; 1 = No effect (when write)
+                                               
+        SB1
+        LD      UARTCON,#01010011B      ; UART Control Register
+                                        ; bit 7-6: Operating mode and baud rate selection bits
+                                        ; 0 0 -> mode 0 Shift register fxx/(16 x (BRDATA +1))
+                                        ; 0 1 -> mode 1 8-bit UART fxx/(16 x (BRDATA +1))
+                                        ; 1 0 -> mode 2 9-bit UART fxx/16
+                                        ; 1 1 -> 9-bit UART fxx/(16 x (BRDATA +1))
+                                        ; bit 5: Multiprocessor communication enable bit (for modes 2 and 3 only)
+                                        ; 0 = Disable
+                                        ; 1 = Enable
+                                        ; bit 4: Serial data receive enable bit
+                                        ; 0 = Disable
+                                        ; 1 = Enable
+                                        ; bit 3: Location of the 9th data bit to be transmitted in UART mode 2 or 3 ("0" or "1")
+                                        ; bit 2: Location of the 9th data bit that was received in UART mode 2 or 3 ("0" or "1")
+                                        ; bit 1: Received interrupt enable bit
+                                        ; 0 = Disable
+                                        ; 1 = Enable
+                                        ; bit 0: Transmit interrupt enable bit
+                                        ; 0 = Disable
+                                        ; 1 = Enable
+        LD      UARTPND,#00000000B      ; UART Pending Register
+                                        ; bit 7-2: Not used
+                                        ; bit 1: UART receive interrupt pending flag
+                                        ; 0 = Not pending
+                                        ; 0 = Clear pending bit (when write)
+                                        ; 1 = Interrupt pending
+                                        ; bit 0: UART transmit interrupt pending flag
+                                        ; 0 = Not pending
+                                        ; 0 = Clear pending bit (when write)
+                                        ; 1 = Interrupt pending
+        LD      BRDATA,#33H             ; UART Baud Rate Data Register
+                                        ; Mode 0 baud rate = fxx/(16 x (8-bit BRDATA + 1))
+                                        ; Mode 1 baud rate = fxx/(16 x (8-bit BRDATA + 1))
+                                        ; Mode 2 baud rate = fxx/16
+                                        ; Mode 3 baud rate = fxx/(16 x (8-bit BRDATA + 1))
+        SB0
+        
+        LD      PWM0CON,#00010000B      ; PWM Control Registers
+                                        ; bit 7-6: PWM input clock selection bits
+                                        ; 00 = fosc/64
+                                        ; 01 = fosc/8
+                                        ; 10 = fosc/2
+                                        ; 11 = fosc/1
+                                        ; bit 5: Not Used
+                                        ; bit 4: PWMDATA reload interval selection bit
+                                        ; 0 = Reload from extension up counter overflow
+                                        ; 1 = Reload from base up counter overflow
+                                        ; bit 3: PWM counter clear bit
+                                        ; 0 = No effect
+                                        ; 1 = Clear the PWM counter (When write)
+                                        ; bit 2: PWM counter enable bit
+                                        ; 0 = Stop counter
+                                        ; 1 = Start (resume countering)
+                                        ; bit 1: PWM counter interrupt enable bit
+                                        ; 0 = Disable PWM OVF interrupt
+                                        ; 1 = Enable PWM OVF interrupt
+                                        ; bit 0: PWM extension counter OVF Interrupt pending bit
+                                        ; 0 = No interrupt pending
+                                        ; 0 = Clear pending condition (when write)
+                                        ; 1 = Interrupt is pending
+        LD      PWM0EX,#00000000B       ; PWM Extension Registers
+                                        ; bit 7-2: PWM Extension bits
+                                        ; bit 7-6: For 6 + 2 resolution
+                                        ; bit 7-2: For 6 + 6 and 8 + 6 resolutions
+                                        ; bit 1-0: PWM resolution selection bits
+                                        ; x0 = 12-bit PWM: 6 + 6 resolution
+                                        ; 01 = 8-bit PWM: 6 + 2 resolution
+                                        ; 11 = 14-bit PWM: 8 + 6 resolution
+        LD      PWM0DATA,#00H
+        
+        LD      uart_status,#00H
+        
+        EI
+
+;;=======================================================================
+;;==      Main function                                                ==
+;;==                                                                   ==
+;;==                                                                   == 
+;;=======================================================================
+MAIN::
+        OR      BTCON,#02H              ; Enable watchdog function
+                                        ; Basic counter (BTCNT) clear
+                                        
+                                        
+        
+        
+        LD      R0,#01H
+        LD      R1,#00H
+        CALL    PWM0                           
+        
+        CALL    DELAY_10s
+        
+        LD      R0,#3FH
+        LD      R1,#00H
+        CALL    PWM0
+        
+        CALL    DELAY_10s
+                                                                    
+        JP      MAIN                                
+
+;;=======================================================================
+;;==      SUBROUTINEs                                                  ==
+;;==                                                                   ==
+;;==                                                                   == 
+;;=======================================================================
+DELAY_1ms:
+        PUSH    R1
+        LD      R1,#0A6H
+DELAY_LOOP_1ms:
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP     
+        DJNZ    R1,DELAY_LOOP_1ms
+        POP     R1
+        
+        RET      
+
+DELAY_10ms:
+        PUSH    R1
+        PUSH    R2
+        LD      R1,#014H
+DELAY_LOOP_10ms_R1:
+        LD      R2,#053H
+DELAY_LOOP_10ms_R2:
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        DJNZ    R2,DELAY_LOOP_10ms_R2     
+        DJNZ    R1,DELAY_LOOP_10ms_R1
+        POP     R2
+        POP     R1
+        
+        RET
+
+DELAY_1s:
+        PUSH    R1
+        PUSH    R2
+        PUSH    R3
+        LD      R1,#043H
+DELAY_LOOP_1s_R1:
+        LD      R2,#00CH
+DELAY_LOOP_1s_R2:
+        LD      R3,#0CFH
+DELAY_LOOP_1s_R3:
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        DJNZ    R3,DELAY_LOOP_1s_R3
+        DJNZ    R2,DELAY_LOOP_1s_R2     
+        DJNZ    R1,DELAY_LOOP_1s_R1
+        POP     R3
+        POP     R2
+        POP     R1
+        
+        RET
+
+DELAY_10s:
+        PUSH    R1
+        PUSH    R2
+        PUSH    R3
+        PUSH    R4
+        LD      R1,#0DFH
+DELAY_LOOP_10s_R1:
+        LD      R2,#004H
+DELAY_LOOP_10s_R2:
+        LD      R3,#042H
+DELAY_LOOP_10s_R3:
+        LD      R4,#015H
+DELAY_LOOP_10s_R4:
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        NOP
+        DJNZ    R4,DELAY_LOOP_10s_R4
+        DJNZ    R3,DELAY_LOOP_10s_R3
+        DJNZ    R2,DELAY_LOOP_10s_R2     
+        DJNZ    R1,DELAY_LOOP_10s_R1
+        POP     R4
+        POP     R3
+        POP     R2
+        POP     R1
+        
+        RET
+                                
+UART_TX:
+        PUSH    R1
+UART_TX_CHECK:
+        LD      R1,uart_status
+        BTJRT   UART_TX_CHECK,R1.0      ; wait until tx finish
+        SB1
+        LD      UDATA,R0    
+        SB0
+        OR      uart_status,#00000001B    
+        POP     R1
+        
+        RET
+        
+TIMER_A:
+        LD      TADATA,#50H             ; CPU = 8mMHz, interrupt interval = 3.2msec
+        LD      TACON,#00001110B        ; fsoc/256, timer A interrupt enable
+        
+        RET       
+
+PWM0:
+        LD      PWM0DATA,R0
+        LD      PWM0EX,R1
+        AND     PWM0CON,#11110111B      ; clear bit3 (clear counter bit, no effect) set to '0' to avoid clear counter
+        OR      PWM0CON,#00000100B      ; PWM start run (if have started, then no effect, keep running)
+        
+        RET
+
+VE209S_TRS:
+; Binary interface for VE209S
+; 02 is the <STX>
+; 00 04 is the size_of_the_packet (4 bytes)
+; 31 32 33 34 are the 4 bytes of the payload
+; 03 is the <ETX>
+        LD      R0,#02H
+        CALL    UART_TX
+        LD      R0,#00H
+        CALL    UART_TX
+        LD      R0,#04H
+        CALL    UART_TX
+        LD      R0,#31H
+        CALL    UART_TX
+        LD      R0,#32H
+        CALL    UART_TX
+        LD      R0,#33H
+        CALL    UART_TX    
+        LD      R0,#34H
+        CALL    UART_TX 
+        LD      R0,#03H
+        CALL    UART_TX
+        
+        RET                                                                                                                                                                                                                                           
+;;=======================================================================
+;;==      INTERRUPT SERVICE ROUTINE                                    ==
+;;==                                                                   ==
+;;==                                                                   == 
+;;=======================================================================                                                                                
+       ;;----------------------------------------
+       ;;     external interrupt 0
+       ;;----------------------------------------
+EX_INT0:
+       AND     P0PND, #11111111B                       ;clear pending bit
+       JP      INT_ISR_END        
+       ;;----------------------------------------
+       ;;     external interrupt 1
+       ;;----------------------------------------
+EX_INT1:
+        AND     P0PND, #11111111B                       ;clear pending bit
+        JP      INT_ISR_END
+       ;;----------------------------------------
+       ;;     external interrupt 2
+       ;;----------------------------------------
+EX_INT2:
+        ;XOR     P0,#00100000B                           ;toggle P0.5 
+        AND     P0PND, #11101111B                       ;clear pending bit
+        JP      INT_ISR_END
+        ;;----------------------------------------
+       ;;     external interrupt 3
+       ;;----------------------------------------
+EX_INT3:
+        ;XOR     P0,#00010000B                           ;toggle P0.4 
+        AND     P0PND, #10111111B                       ;clear pending bit
+        JP      INT_ISR_END
+        ;;----------------------------------------
+       ;;     external interrupt 4
+       ;;----------------------------------------
+EX_INT4:
+        ;XOR     P0,#10000000B                           ;toggle P0.7 
+        AND     P3PND, #11111110B                       ;clear pending bit
+        JP      INT_ISR_END
+        ;;----------------------------------------
+       ;;     external interrupt 5
+       ;;----------------------------------------
+EX_INT5:
+        ;XOR     P0,#01000000B                           ;toggle P0.6 
+        AND     P3PND, #11111011B                       ;clear pending bit
+        JP      INT_ISR_END
+        ;;----------------------------------------
+       ;;     external interrupt 6
+       ;;----------------------------------------
+EX_INT6:
+        ;XOR     P0,#00100000B                           ;toggle P0.5 
+        AND     P3PND, #11101111B                       ;clear pending bit
+        JP      INT_ISR_END
+        ;;----------------------------------------
+       ;;     external interrupt 7
+       ;;----------------------------------------
+EX_INT7:
+        ;XOR     P0,#00010000B                           ;toggle P0.4 
+        AND     P3PND, #10111111B                       ;clear pending bit
+        JP      INT_ISR_END
+        
+       ;;----------------------------------------
+       ;;     Timer0/A match interrupt
+       ;;----------------------------------------  
+T0_A_MC_INT:
+        ;XOR     P0,#10000000B                           ;toggle P0.7
+        AND     TACON,#11111110B                        ;clear pending bit
+        JP      INT_ISR_END 
+       ;;----------------------------------------
+       ;;     TimerB match interrupt
+       ;;---------------------------------------- 
+TB_MC_INT:
+        ;XOR     P0,#01000000B                           ;toggle P0.6
+        AND     TBCON,#11111110B                        ;clear pending bit
+        JP      INT_ISR_END
+       ;;----------------------------------------
+       ;;     PWM1 Overflow interrupt 
+       ;;----------------------------------------
+PWM1_OVF_INT:
+        ;XOR     P0,#01000000B                           ;toggle P0.6
+        SB1
+        AND     PWM1CON,#11110110B                       ;clear pending bit
+        SB0
+        JP      INT_ISR_END
+       ;;----------------------------------------
+       ;;     PWM0 Overflow interrupt 
+       ;;----------------------------------------
+PWM0_OVF_INT:
+        ;XOR     P0,#00100000B                           ;toggle P0.5
+        AND     PWM0CON,#11110110B                       ;clear pending bit
+        JP      INT_ISR_END
+       ;;----------------------------------------
+       ;;     Timer1 match interrupt
+       ;;----------------------------------------  
+TIMER1_MC_INT:
+        ;XOR     P0,#00100000B                            ;toggle P0.5
+        SB1
+        AND     T1CON,#11111110B                         ;clear pending bit
+        SB0
+        JP      INT_ISR_END 
+       ;;----------------------------------------
+       ;;     Timer1 Overflow interrupt
+       ;;----------------------------------------  
+TIMER1_OVF_INT:
+        ;XOR     P0,#00010000B                            ;toggle P0.4
+        SB1
+        AND     T1CON,#11111011B                         ;clear pending bit
+        SB0
+        JP      INT_ISR_END
+       ;;----------------------------------------
+       ;;     Low voltage detector interrupt
+       ;;---------------------------------------- 
+LVD_INT:
+        ;SB0
+        ;AND      P0,#11110111B                            ;light P0.3
+        SB1
+        AND     LVDCON, #11101111B                       ;disable interrupt
+        SB0
+        JP      INT_ISR_END              
+       ;;----------------------------------------
+       ;;     UART interrupt
+       ;;---------------------------------------- 
+UART_TRS_INT:
+        SB1
+        AND     uart_status,#11111110B
+        AND     UARTPND, #11111110B                      ;clear pending bit
+        SB0
+        JP      INT_ISR_END
+UART_RV_INT:
+        SB1
+        AND     UARTPND, #11111101B                      ;clear pending bit
+        SB0
+        JP      INT_ISR_END
+       ;;----------------------------------------
+       ;;     IIC interrupt
+       ;;---------------------------------------- 
+IIC_INT:
+        JP      INT_ISR_END
+       ;;----------------------------------------
+       ;;     Watchdog  interrupt
+       ;;---------------------------------------- 
+WDT_INT:
+        ;XOR     P3,#00000001B                           ;toggle P3.0
+        ;AND      WDTCON, #10111111B                    ;disable reset, clear counter
+        OR      WDTCON, #00010000B                      ;clear counter.      
+        JP      INT_ISR_END       
+
+
+
+       ;;----------------------------------------
+       ;;     interrupt service end
+       ;;----------------------------------------        
+INT_ISR_END:                
+       IRET
+       
+.END                                                          
