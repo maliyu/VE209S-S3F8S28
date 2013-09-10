@@ -746,7 +746,7 @@ UART_RX_ECHO:
         INC     R0
         LD      R1,@R0
         CP      R1,#30H
-        JP      ULE,INVALID_ON_CMD
+        JP      ULT,INVALID_ON_CMD
         CP      R1,#34H
         JP      UGT,INVALID_ON_CMD
         LD      R0,#01H
@@ -779,7 +779,7 @@ INVALID_ON_CMD:
         INC     R0
         LD      R1,@R0
         CP      R1,#30H
-        JP      ULE,INVALID_OFF_CMD
+        JP      ULT,INVALID_OFF_CMD
         CP      R1,#34H
         JP      UGT,INVALID_OFF_CMD
         LD      R0,#00H

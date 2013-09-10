@@ -1,5 +1,5 @@
  -------  FILE NO #1 : VE209S.l -------
-Tue Sep 10 18:30:28 2013
+Tue Sep 10 18:37:23 2013
                               
      SAM8 Assembler Ver. 2.15T(Win32) Copyright (c) 2003 Samsung Electronics Co.
                              
@@ -761,7 +761,7 @@ Tue Sep 10 18:30:28 2013
   752  02D7   0E                 INC     R0
   753  02D8   C7 10              LD      R1,@R0
   754  02DA   A6 C1 30           CP      R1,#30H
-  755  02DD   3D 02 ED           JP      ULE,INVALID_ON_CMD
+  755  02DD   7D 02 ED           JP      ULT,INVALID_ON_CMD
   756  02E0   A6 C1 34           CP      R1,#34H
   757  02E3   BD 02 ED           JP      UGT,INVALID_ON_CMD
   758  02E6   0C 01              LD      R0,#01H
@@ -794,7 +794,7 @@ Tue Sep 10 18:30:28 2013
   785  031E   0E                 INC     R0
   786  031F   C7 10              LD      R1,@R0
   787  0321   A6 C1 30           CP      R1,#30H
-  788  0324   3D 03 34           JP      ULE,INVALID_OFF_CMD
+  788  0324   7D 03 34           JP      ULT,INVALID_OFF_CMD
   789  0327   A6 C1 34           CP      R1,#34H
   790  032A   BD 03 34           JP      UGT,INVALID_OFF_CMD
   791  032D   0C 00              LD      R0,#00H
