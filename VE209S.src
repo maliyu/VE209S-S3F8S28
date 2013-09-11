@@ -35,6 +35,7 @@
 ;;=======================================================================
 uart_status     EQU     00H
 uart_rx_data    EQU     01H     ; reserve 50 bytes for uart rx data
+pwm0_value      EQU     33H     ; store current PWM0 value
 
 
         .ORG    0000H
@@ -410,7 +411,9 @@ RESET:
                                         ; 11 = 14-bit PWM: 8 + 6 resolution
         LD      PWM0DATA,#00H
         
-        LD      uart_status,#00H
+        CLR     uart_status
+        
+        CLR     pwm0_value
 
         CALL    UART_RX_DATA_INIT
         
@@ -599,6 +602,7 @@ TIMER_A:
 PWM0:
         LD      PWM0DATA,R0
         LD      PWM0EX,R1
+        LD      pwm0_value,R0
         AND     PWM0CON,#11110111B      ; clear bit3 (clear counter bit, no effect) set to '0' to avoid clear counter
         OR      PWM0CON,#00000100B      ; PWM start run (if have started, then no effect, keep running)
         
@@ -733,21 +737,23 @@ UART_RX_ECHO:
         JP      NE,INVALID_ON_CMD
         INC     R0
         LD      R1,@R0
-        CP      R1,#4FH
+        CP      R1,#4FH         ; 'O'
         JP      NE,INVALID_ON_CMD
         INC     R0
         LD      R1,@R0
-        CP      R1,#4EH
+        CP      R1,#4EH         ; 'N'
         JP      NE,INVALID_ON_CMD
         INC     R0
         LD      R1,@R0
-        CP      R1,#20H
+        CP      R1,#20H         ; ' '
         JP      NE,INVALID_ON_CMD
         INC     R0
         LD      R1,@R0
-        CP      R1,#30H
+        CP      R1,#30H         
         JP      ULT,INVALID_ON_CMD
         CP      R1,#34H
+        JP      UGT,INVALID_ON_CMD
+        CP      pwm0_value,#00H
         JP      UGT,INVALID_ON_CMD
         LD      R0,#01H
         LD      R1,#00H
@@ -762,19 +768,19 @@ INVALID_ON_CMD:
         JP      NE,INVALID_OFF_CMD
         INC     R0
         LD      R1,@R0
-        CP      R1,#4FH
+        CP      R1,#4FH         ; 'O'
         JP      NE,INVALID_OFF_CMD
         INC     R0
         LD      R1,@R0
-        CP      R1,#46H
+        CP      R1,#46H         ; 'F'
         JP      NE,INVALID_OFF_CMD
         INC     R0
         LD      R1,@R0
-        CP      R1,#46H
+        CP      R1,#46H         ; 'F'
         JP      NE,INVALID_OFF_CMD
         INC     R0
         LD      R1,@R0
-        CP      R1,#20H
+        CP      R1,#20H         ; ' '
         JP      NE,INVALID_OFF_CMD
         INC     R0
         LD      R1,@R0
@@ -786,6 +792,120 @@ INVALID_ON_CMD:
         LD      R1,#00H
         CALL    PWM0
 INVALID_OFF_CMD:
+
+        ; check "DIM+ x" command to dim up LED
+        LD      R0,uart_rx_data
+        ADD     R0,#02H
+        LD      R1,@R0
+        CP      R1,#06H
+        JP      NE,LED_DIMPLUS_CMD
+        INC     R0
+        LD      R1,@R0
+        CP      R1,#44H         ; 'D'
+        JP      NE,LED_DIMPLUS_CMD
+        INC     R0
+        LD      R1,@R0
+        CP      R1,#49H         ; 'I'
+        JP      NE,LED_DIMPLUS_CMD
+        INC     R0
+        LD      R1,@R0
+        CP      R1,#4DH         ; 'M'
+        JP      NE,LED_DIMPLUS_CMD
+        INC     R0
+        LD      R1,@R0
+        CP      R1,#2BH         ; '+'
+        JP      NE,LED_DIMPLUS_CMD
+        INC     R0
+        LD      R1,@R0
+        CP      R1,#20H
+        JP      NE,LED_DIMPLUS_CMD
+        INC     R0
+        LD      R1,@R0
+        CP      R1,#30H
+        JP      ULT,LED_DIMPLUS_CMD
+        CP      R1,#34H
+        JP      UGT,LED_DIMPLUS_CMD
+        CP      pwm0_value,#03FH
+        JP      EQ,LED_DIMPLUS_CMD
+LED_DIMPLUS_4:
+        CP      pwm0_value,#030H
+        JP      NE,LED_DIMPLUS_3
+        LD      R0,#03FH
+        JP      LED_DIMPLUS_0
+LED_DIMPLUS_3:
+        CP      pwm0_value,#020H
+        JP      NE,LED_DIMPLUS_2
+        LD      R0,#030H
+        JP      LED_DIMPLUS_0
+LED_DIMPLUS_2:
+        CP      pwm0_value,#010H
+        JP      NE,LED_DIMPLUS_1
+        LD      R0,#020H
+        JP      LED_DIMPLUS_0
+LED_DIMPLUS_1:
+        CP      pwm0_value,#01H
+        JP      NE,LED_DIMPLUS_CMD
+        LD      R0,#010H
+LED_DIMPLUS_0:
+        LD      R1,#00H
+        CALL    PWM0
+LED_DIMPLUS_CMD:
+
+        ; check "DIM- x" command to dim up LED
+        LD      R0,uart_rx_data
+        ADD     R0,#02H
+        LD      R1,@R0
+        CP      R1,#06H
+        JP      NE,LED_DIMMINUS_CMD
+        INC     R0
+        LD      R1,@R0
+        CP      R1,#44H         ; 'D'
+        JP      NE,LED_DIMMINUS_CMD
+        INC     R0
+        LD      R1,@R0
+        CP      R1,#49H         ; 'I'
+        JP      NE,LED_DIMMINUS_CMD
+        INC     R0
+        LD      R1,@R0
+        CP      R1,#4DH         ; 'M'
+        JP      NE,LED_DIMMINUS_CMD
+        INC     R0
+        LD      R1,@R0
+        CP      R1,#2DH         ; '-'
+        JP      NE,LED_DIMMINUS_CMD
+        INC     R0
+        LD      R1,@R0
+        CP      R1,#20H
+        JP      NE,LED_DIMMINUS_CMD
+        INC     R0
+        LD      R1,@R0
+        CP      R1,#30H
+        JP      ULT,LED_DIMMINUS_CMD
+        CP      R1,#34H
+        JP      UGT,LED_DIMMINUS_CMD
+        CP      pwm0_value,#01H
+        JP      ULE,LED_DIMMINUS_CMD
+LED_DIMMINUS_5:
+        CP      pwm0_value,#010H
+        JP      NE,LED_DIMMINUS_4
+        LD      R0,#01H
+        JP      LED_DIMMINUS_0
+LED_DIMMINUS_4:
+        CP      PWM0DATA,#020H
+        JP      NE,LED_DIMMINUS_3
+        LD      R0,#010H
+        JP      LED_DIMMINUS_0
+LED_DIMMINUS_3:
+        CP      PWM0DATA,#030H
+        JP      NE,LED_DIMMINUS_2
+        LD      R0,#020H
+        JP      LED_DIMMINUS_0
+LED_DIMMINUS_2:
+        LD      R0,#030H
+LED_DIMMINUS_0:
+        LD      R1,#00H
+        CALL    PWM0
+LED_DIMMINUS_CMD:
                         
         CALL    UART_RX_DATA_INIT
         
