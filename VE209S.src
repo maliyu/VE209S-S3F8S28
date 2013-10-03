@@ -204,7 +204,7 @@ RESET:
                                         ; 0 x = Schmitt trigger input
                                         ; 1 0 = Push-pull output
                                         ; 1 1 = A/D converter input (ADC4); schmitt trigger input off
-        LD     P0CONL,#10101010B        ; Port 0 Control Register (Low Byte)
+        LD     P0CONL,#10101001B        ; Port 0 Control Register (Low Byte)
                                         ; [.7-.6] Port 0, P0.3/ADC3/INT3 Configuration Bits
                                         ; 0 0 = Schmitt trigger input/falling edge interrupt input
                                         ; 0 1 = Alternative function: SDA
@@ -224,7 +224,7 @@ RESET:
                                         ; 1 0 = Push-pull output
                                         ; 1 1 = A/D converter input (ADC0); Schmitt trigger input off                                    
          LD     P0PND,#00000000B        ; Port 0 Interrupt Pending Register
-         ;LD     P0PUR,#11110000B        ; Port 0 Pull-up Resistor Enable Register
+         LD     P0PUR,#11110001B        ; Port 0 Pull-up Resistor Enable Register
          LD     P1CON,#00011010B        ; Port 1 Control Register
                                         ; [.7] Port 1.1 N-Channel Open-Drain Enable Bit
                                         ; 0 = Configure P1.1 as a push-pull output
@@ -448,6 +448,10 @@ MAIN::
                                         ; Basic counter (BTCNT) clear
 
         CALL    TASK_RX 
+        
+        CALL    BUTTON_PRESS
+        
+        CALL    TASK_P00
         
         ;CALL    DELAY_10s
                                                                     
@@ -913,7 +917,81 @@ LED_DIMMINUS_CMD:
 DISCARD_DATA:
         ;CALL    UART_RX_DATA_INIT
         
-        RET                                                                                                                                                                                                                                     
+        RET 
+
+BUTTON_PRESS:
+        LD      R0,P0
+        AND     R0,#00000001B
+        BTJRT   BUTTON_PRESS_RELEASED,R0.0
+        CP      R13,#064H
+        JP      LE,BUTTON_PRESS_DEBOUNCE
+        CP      R14,#00H
+        JP      NE,BUTTON_PRESS_CONTINUE
+        LD      R14,#001H       ; key press down detected
+        JP      BUTTON_PRESS_END
+BUTTON_PRESS_CONTINUE:
+        LD      R14,#002H       ; key press on hold detected
+        JP      BUTTON_PRESS_END
+BUTTON_PRESS_DEBOUNCE:
+        ADD     R13,#01H
+        CALL    DELAY_1ms
+        JP      BUTTON_PRESS_END
+BUTTON_PRESS_RELEASED:
+        CLR     R13
+        CLR     R14
+BUTTON_PRESS_END:
+        RET
+
+TASK_P00:
+        CP      R14,#001H
+        JP      NE,TASK_P00_END
+        CP      PWM0DATA,#00H
+        JP      NE,TASK_P00_LED_OFF
+TASK_P00_LED_ON:
+        LD      R0,#001H
+        LD      R1,#00H
+        CALL    PWM0
+        LD      R0,#02H
+        CALL    UART_TX
+        LD      R0,#00H
+        CALL    UART_TX
+        LD      R0,#04H
+        CALL    UART_TX
+        LD      R0,#4FH
+        CALL    UART_TX
+        LD      R0,#4EH
+        CALL    UART_TX
+        LD      R0,#20H
+        CALL    UART_TX    
+        LD      R0,#31H
+        CALL    UART_TX 
+        LD      R0,#03H
+        CALL    UART_TX
+        JP      TASK_P00_END
+TASK_P00_LED_OFF:  
+        LD      R0,#00H
+        LD      R1,#00H
+        CALL    PWM0
+        LD      R0,#02H
+        CALL    UART_TX
+        LD      R0,#00H
+        CALL    UART_TX
+        LD      R0,#05H
+        CALL    UART_TX
+        LD      R0,#4FH
+        CALL    UART_TX
+        LD      R0,#46H
+        CALL    UART_TX
+        LD      R0,#46H
+        CALL    UART_TX
+        LD      R0,#20H
+        CALL    UART_TX    
+        LD      R0,#31H
+        CALL    UART_TX 
+        LD      R0,#03H
+        CALL    UART_TX      
+TASK_P00_END:        
+        RET                                                                                                                                                                                                                                    
 ;;=======================================================================
 ;;==      INTERRUPT SERVICE ROUTINE                                    ==
 ;;==                                                                   ==
@@ -923,13 +1001,13 @@ DISCARD_DATA:
        ;;     external interrupt 0
        ;;----------------------------------------
 EX_INT0:
-       AND     P0PND, #11111111B                       ;clear pending bit
+       AND     P0PND, #11111110B                       ;clear pending bit
        JP      INT_ISR_END        
        ;;----------------------------------------
        ;;     external interrupt 1
        ;;----------------------------------------
 EX_INT1:
-        AND     P0PND, #11111111B                       ;clear pending bit
+        AND     P0PND, #11111011B                       ;clear pending bit
         JP      INT_ISR_END
        ;;----------------------------------------
        ;;     external interrupt 2
