@@ -436,6 +436,8 @@ RESET:
         
         LD      R15,uart_rx_data
         
+        LD      R12,#001H
+        
         EI
 
 ;;=======================================================================
@@ -451,7 +453,7 @@ MAIN::
         
         CALL    BUTTON_PRESS
         
-        CALL    TASK_P00
+        ;CALL    TASK_P00
         
         ;CALL    DELAY_10s
                                                                     
@@ -919,15 +921,63 @@ DISCARD_DATA:
         
         RET 
 
-BUTTON_PRESS:
+BUTTON_PRESS:        
         LD      R0,P0
         AND     R0,#00000001B
-        BTJRT   BUTTON_PRESS_RELEASED,R0.0
+        CP      R0,#001H
+        JP      EQ,BUTTON_PRESS_RELEASE
         CP      R13,#064H
         JP      LE,BUTTON_PRESS_DEBOUNCE
+        CP      R0,#001H
+        JP      EQ,BUTTON_PRESS_RELEASE
         CP      R14,#00H
         JP      NE,BUTTON_PRESS_CONTINUE
         LD      R14,#001H       ; key press down detected
+        CP      PWM0DATA,#00H
+        JP      NE,BUTTON_PRESS_LED_OFF
+BUTTON_PRESS_LED_ON:
+        LD      R0,#001H
+        LD      R1,#00H
+        CALL    PWM0
+        LD      R0,#02H
+        CALL    UART_TX
+        LD      R0,#00H
+        CALL    UART_TX
+        LD      R0,#04H
+        CALL    UART_TX
+        LD      R0,#4FH
+        CALL    UART_TX
+        LD      R0,#4EH
+        CALL    UART_TX
+        LD      R0,#20H
+        CALL    UART_TX    
+        LD      R0,#31H
+        CALL    UART_TX 
+        LD      R0,#03H
+        CALL    UART_TX
+        JP      BUTTON_PRESS_END
+BUTTON_PRESS_LED_OFF:
+        LD      R0,#00H
+        LD      R1,#00H
+        CALL    PWM0
+        LD      R0,#02H
+        CALL    UART_TX
+        LD      R0,#00H
+        CALL    UART_TX
+        LD      R0,#05H
+        CALL    UART_TX
+        LD      R0,#4FH
+        CALL    UART_TX
+        LD      R0,#46H
+        CALL    UART_TX
+        LD      R0,#46H
+        CALL    UART_TX
+        LD      R0,#20H
+        CALL    UART_TX    
+        LD      R0,#31H
+        CALL    UART_TX 
+        LD      R0,#03H
+        CALL    UART_TX
         JP      BUTTON_PRESS_END
 BUTTON_PRESS_CONTINUE:
         LD      R14,#002H       ; key press on hold detected
@@ -936,7 +986,7 @@ BUTTON_PRESS_DEBOUNCE:
         ADD     R13,#01H
         CALL    DELAY_1ms
         JP      BUTTON_PRESS_END
-BUTTON_PRESS_RELEASED:
+BUTTON_PRESS_RELEASE:
         CLR     R13
         CLR     R14
 BUTTON_PRESS_END:
@@ -991,7 +1041,8 @@ TASK_P00_LED_OFF:
         LD      R0,#03H
         CALL    UART_TX      
 TASK_P00_END:        
-        RET                                                                                                                                                                                                                                    
+        RET 
+                                                                                                                                                                                                                                           
 ;;=======================================================================
 ;;==      INTERRUPT SERVICE ROUTINE                                    ==
 ;;==                                                                   ==
