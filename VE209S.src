@@ -28,14 +28,16 @@
 ;************************************************************************
 .INCLUDE "S3F8S28.reg"
 
+VE209S_NUMBER   EQU     032H
+
 ;;=======================================================================
 ;;==                                                                   ==
 ;;==                RAM ASSIGNMENT                                     ==
 ;;==                                                                   == 
 ;;=======================================================================
-uart_status     EQU     00H
-uart_rx_data    EQU     01H     ; reserve 50 bytes for uart rx data
-pwm0_value      EQU     33H     ; store current PWM0 value
+uart_status     EQU     10H
+uart_rx_data    EQU     11H     ; reserve 50 bytes for uart rx data
+pwm0_value      EQU     43H     ; store current PWM0 value
 
 
         .ORG    0000H
@@ -434,9 +436,7 @@ RESET:
         CLR     R14
         CLR     R15
         
-        LD      R15,uart_rx_data
-        
-        LD      R12,#001H
+        LD      R15,#uart_rx_data
         
         EI
 
@@ -573,14 +573,14 @@ DELAY_LOOP_10s_R4:
 UART_RX_DATA_INIT:
         PUSH    R0
         PUSH    R1
-        LD      R0,uart_rx_data
+        LD      R0,#uart_rx_data
         LD      R1,#00H
 UART_RX_DATA_INIT_LOOP:
         CLR     @R0
         INC     R0
         INC     R1
         CP      R1,#032H
-        JR      ULE,UART_RX_DATA_INIT_LOOP
+        JP      ULE,UART_RX_DATA_INIT_LOOP
         POP     R1
         POP     R0
         
@@ -701,234 +701,212 @@ Flash_Write_Loop:
         EI
         
         RET
-
+        
 TASK_RX:
-        LD      R0,@uart_rx_data
-        CP      R0,#02H                                 ; STX
-        JP      NE,DISCARD_DATA
-        
-        ;LD      R0,#01H
-        ;LD      R1,#00H
-        ;CALL    PWM0
-        
-        LD      R0,uart_rx_data
-        ADD     R0,#02H
+        CP      R12,#80H
+        JP      NE,TASK_RX_END
+        LD      R0,#uart_rx_data
         LD      R1,@R0
-        ;LD      R10,@R0
-        ADD     R1,#03H
-        ADD     R1,uart_rx_data
-        LD      R0,@R1
-        CP      R0,#03H                                 ; ETX
-        JP      NE,DISCARD_DATA
-        
-        ;ADD     R10,#04H
-        ;LD      R0,#3FH
-        ;LD      R1,#00H
-        ;CALL    PWM0
-
-        LD      R2,uart_rx_data
-UART_RX_ECHO:        
-        LD      R0,@R2
-        CALL    UART_TX
-        INC     R2
-        ;DJNZ    R10,UART_RX_ECHO
-        CP      R2,R15
-        JP      ULE,UART_RX_ECHO
-
-        ; check "ON x" command to turn on LED
-        LD      R0,uart_rx_data
-        ADD     R0,#02H
+        CP      R1,#02H                                 ; STX
+        JP      NE,TASK_RX_DISCARD
+        INC     R0
+        LD      R1,@R0                                  
+        CP      R1,#00H                                 ; high byte of data length. It should be 00H
+        JP      NE,TASK_RX_DISCARD
+        INC     R0
         LD      R1,@R0
+        CP      R1,#00H                                 ; low byte of data length. It should not be 00H
+        JP      EQ,TASK_RX_DISCARD                      
         CP      R1,#04H
-        JP      NE,INVALID_ON_CMD
+        JP      EQ,TASK_RX_ON_CMD
+        CP      R1,#05H
+        JP      EQ,TASK_RX_OFF_CMD
+        CP      R1,#06H
+        JP      EQ,TASK_RX_DIM_CMD
+        JP      TASK_RX_DISCARD      
+TASK_RX_ON_CMD: 
         INC     R0
         LD      R1,@R0
-        CP      R1,#4FH         ; 'O'
-        JP      NE,INVALID_ON_CMD
+        CP      R1,#4FH                                 ; 'O'
+        JP      NE,TASK_RX_DISCARD
         INC     R0
         LD      R1,@R0
-        CP      R1,#4EH         ; 'N'
-        JP      NE,INVALID_ON_CMD
+        CP      R1,#4EH                                 ; 'N'
+        JP      NE,TASK_RX_DISCARD
         INC     R0
         LD      R1,@R0
-        CP      R1,#20H         ; ' '
-        JP      NE,INVALID_ON_CMD
+        CP      R1,#20H                                 ; space
+        JP      NE,TASK_RX_DISCARD
         INC     R0
         LD      R1,@R0
-        CP      R1,#30H         
-        JP      ULT,INVALID_ON_CMD
-        CP      R1,#34H
-        JP      UGT,INVALID_ON_CMD
-        CP      pwm0_value,#00H
-        JP      UGT,INVALID_ON_CMD
+        CP      R1,#VE209S_NUMBER                       ; VE209S number, from 31H-35H
+        JP      NE,TASK_RX_DISCARD
+        INC     R0
+        LD      R1,@R0
+        CP      R1,#03H                                 ; ETX
+        JP      NE,TASK_RX_DISCARD
+        LD      R3,R0
         LD      R0,#01H
         LD      R1,#00H
-        CALL    PWM0
-INVALID_ON_CMD:
-
-        ; check "OFF x" command to turn on LED
-        LD      R0,uart_rx_data
-        ADD     R0,#02H
-        LD      R1,@R0
-        CP      R1,#05H
-        JP      NE,INVALID_OFF_CMD
+        CALL    PWM0      
+        JP      TASK_RX_ECHO
+TASK_RX_OFF_CMD:
         INC     R0
         LD      R1,@R0
-        CP      R1,#4FH         ; 'O'
-        JP      NE,INVALID_OFF_CMD
+        CP      R1,#4FH                                 ; 'O'
+        JP      NE,TASK_RX_DISCARD
         INC     R0
         LD      R1,@R0
-        CP      R1,#46H         ; 'F'
-        JP      NE,INVALID_OFF_CMD
+        CP      R1,#46H                                 ; 'F'
+        JP      NE,TASK_RX_DISCARD
         INC     R0
         LD      R1,@R0
-        CP      R1,#46H         ; 'F'
-        JP      NE,INVALID_OFF_CMD
+        CP      R1,#46H                                 ; 'F'
+        JP      NE,TASK_RX_DISCARD 
         INC     R0
         LD      R1,@R0
-        CP      R1,#20H         ; ' '
-        JP      NE,INVALID_OFF_CMD
+        CP      R1,#20H                                 ; space
+        JP      NE,TASK_RX_DISCARD 
         INC     R0
         LD      R1,@R0
-        CP      R1,#30H
-        JP      ULT,INVALID_OFF_CMD
-        CP      R1,#34H
-        JP      UGT,INVALID_OFF_CMD
+        CP      R1,#VE209S_NUMBER                       ; VE209S number, from 31H-35H
+        JP      NE,TASK_RX_DISCARD
+        INC     R0
+        LD      R1,@R0
+        CP      R1,#03H                                 ; ETX
+        JP      NE,TASK_RX_DISCARD
+        LD      R3,R0
         LD      R0,#00H
         LD      R1,#00H
-        CALL    PWM0
-INVALID_OFF_CMD:
-
-        ; check "DIM+ x" command to dim up LED
-        LD      R0,uart_rx_data
-        ADD     R0,#02H
-        LD      R1,@R0
-        CP      R1,#06H
-        JP      NE,LED_DIMPLUS_CMD
+        CALL    PWM0    
+        JP      TASK_RX_ECHO
+TASK_RX_DIM_CMD:
         INC     R0
         LD      R1,@R0
-        CP      R1,#44H         ; 'D'
-        JP      NE,LED_DIMPLUS_CMD
+        CP      R1,#44H                                 ; 'D'
+        JP      NE,TASK_RX_DISCARD
         INC     R0
         LD      R1,@R0
-        CP      R1,#49H         ; 'I'
-        JP      NE,LED_DIMPLUS_CMD
+        CP      R1,#49H                                 ; 'I'
+        JP      NE,TASK_RX_DISCARD
         INC     R0
         LD      R1,@R0
-        CP      R1,#4DH         ; 'M'
-        JP      NE,LED_DIMPLUS_CMD
+        CP      R1,#4DH                                 ; 'M'
+        JP      NE,TASK_RX_DISCARD
+        INC     R0
+        LD      R1,@R0                                  
+        CP      R1,#2BH                                 ; '+'
+        JP      EQ,TASK_RX_DIM_CMD_PLUS
+        CP      R1,#2DH                                 ; '-'
+        JP      NE,TASK_RX_DISCARD
+TASK_RX_DIM_CMD_MINUS:
         INC     R0
         LD      R1,@R0
-        CP      R1,#2BH         ; '+'
-        JP      NE,LED_DIMPLUS_CMD
+        CP      R1,#20H                                 ; space
+        JP      NE,TASK_RX_DISCARD 
         INC     R0
         LD      R1,@R0
-        CP      R1,#20H
-        JP      NE,LED_DIMPLUS_CMD
+        CP      R1,#VE209S_NUMBER                       ; VE209S number, from 31H-35H
+        JP      NE,TASK_RX_DISCARD
         INC     R0
         LD      R1,@R0
-        CP      R1,#30H
-        JP      ULT,LED_DIMPLUS_CMD
-        CP      R1,#34H
-        JP      UGT,LED_DIMPLUS_CMD
-        CP      pwm0_value,#03FH
-        JP      EQ,LED_DIMPLUS_CMD
-LED_DIMPLUS_4:
-        CP      pwm0_value,#030H
-        JP      NE,LED_DIMPLUS_3
-        LD      R0,#03FH
-        JP      LED_DIMPLUS_0
-LED_DIMPLUS_3:
+        CP      R1,#03H                                 ; ETX
+        JP      NE,TASK_RX_DISCARD
+        LD      R3,R0
+        CP      pwm0_value,#00H
+        JP      EQ,TASK_RX_ECHO
+        CP      pwm0_value,#01H
+        JP      EQ,TASK_RX_DIM_CMD_MINUS1
+        CP      pwm0_value,#010H
+        JP      EQ,TASK_RX_DIM_CMD_MINUS2
         CP      pwm0_value,#020H
-        JP      NE,LED_DIMPLUS_2
-        LD      R0,#030H
-        JP      LED_DIMPLUS_0
-LED_DIMPLUS_2:
-        CP      pwm0_value,#010H
-        JP      NE,LED_DIMPLUS_1
-        LD      R0,#020H
-        JP      LED_DIMPLUS_0
-LED_DIMPLUS_1:
-        CP      pwm0_value,#01H
-        JP      NE,LED_DIMPLUS_CMD
-        LD      R0,#010H
-LED_DIMPLUS_0:
-        LD      R1,#00H
-        CALL    PWM0
-LED_DIMPLUS_CMD:
-
-        ; check "DIM- x" command to dim up LED
-        LD      R0,uart_rx_data
-        ADD     R0,#02H
-        LD      R1,@R0
-        CP      R1,#06H
-        JP      NE,LED_DIMMINUS_CMD
-        INC     R0
-        LD      R1,@R0
-        CP      R1,#44H         ; 'D'
-        JP      NE,LED_DIMMINUS_CMD
-        INC     R0
-        LD      R1,@R0
-        CP      R1,#49H         ; 'I'
-        JP      NE,LED_DIMMINUS_CMD
-        INC     R0
-        LD      R1,@R0
-        CP      R1,#4DH         ; 'M'
-        JP      NE,LED_DIMMINUS_CMD
-        INC     R0
-        LD      R1,@R0
-        CP      R1,#2DH         ; '-'
-        JP      NE,LED_DIMMINUS_CMD
-        INC     R0
-        LD      R1,@R0
-        CP      R1,#20H
-        JP      NE,LED_DIMMINUS_CMD
-        INC     R0
-        LD      R1,@R0
-        CP      R1,#30H
-        JP      ULT,LED_DIMMINUS_CMD
-        CP      R1,#34H
-        JP      UGT,LED_DIMMINUS_CMD
-        CP      pwm0_value,#01H
-        JP      ULE,LED_DIMMINUS_CMD
-LED_DIMMINUS_5:
-        CP      pwm0_value,#010H
-        JP      NE,LED_DIMMINUS_4
+        JP      EQ,TASK_RX_DIM_CMD_MINUS3
+        CP      pwm0_value,#030H
+        JP      EQ,TASK_RX_DIM_CMD_MINUS4
+        JP      TASK_RX_ECHO
+TASK_RX_DIM_CMD_MINUS1:
+        LD      R0,#00H
+        JP      TASK_RX_DIM_CMD_MINUS_PWM
+TASK_RX_DIM_CMD_MINUS2:
         LD      R0,#01H
-        JP      LED_DIMMINUS_0
-LED_DIMMINUS_4:
-        CP      PWM0DATA,#020H
-        JP      NE,LED_DIMMINUS_3
+        JP      TASK_RX_DIM_CMD_MINUS_PWM
+TASK_RX_DIM_CMD_MINUS3:
         LD      R0,#010H
-        JP      LED_DIMMINUS_0
-LED_DIMMINUS_3:
-        CP      PWM0DATA,#030H
-        JP      NE,LED_DIMMINUS_2
+        JP      TASK_RX_DIM_CMD_MINUS_PWM
+TASK_RX_DIM_CMD_MINUS4:
         LD      R0,#020H
-        JP      LED_DIMMINUS_0
-LED_DIMMINUS_2:
-        LD      R0,#030H
-LED_DIMMINUS_0:
+TASK_RX_DIM_CMD_MINUS_PWM:
         LD      R1,#00H
         CALL    PWM0
-LED_DIMMINUS_CMD:
-                        
+        JP      TASK_RX_ECHO        
+TASK_RX_DIM_CMD_PLUS:
+        INC     R0
+        LD      R1,@R0
+        CP      R1,#20H                                 ; space
+        JP      NE,TASK_RX_DISCARD 
+        INC     R0
+        LD      R1,@R0
+        CP      R1,#VE209S_NUMBER                       ; VE209S number, from 31H-35H
+        JP      NE,TASK_RX_DISCARD
+        INC     R0
+        LD      R1,@R0
+        CP      R1,#03H                                 ; ETX
+        JP      NE,TASK_RX_DISCARD
+        LD      R3,R0
+        CP      pwm0_value,#00H
+        JP      EQ,TASK_RX_ECHO
+        CP      pwm0_value,#01H
+        JP      EQ,TASK_RX_DIM_CMD_PLUS1
+        CP      pwm0_value,#010H
+        JP      EQ,TASK_RX_DIM_CMD_PLUS2
+        CP      pwm0_value,#020H
+        JP      EQ,TASK_RX_DIM_CMD_PLUS3
+        CP      pwm0_value,#030H
+        JP      EQ,TASK_RX_DIM_CMD_PLUS4
+        JP      TASK_RX_ECHO
+TASK_RX_DIM_CMD_PLUS1:
+        LD      R0,#010H
+        JP      TASK_RX_DIM_CMD_PWM
+TASK_RX_DIM_CMD_PLUS2:
+        LD      R0,#020H
+        JP      TASK_RX_DIM_CMD_PWM
+TASK_RX_DIM_CMD_PLUS3:
+        LD      R0,#030H
+        JP      TASK_RX_DIM_CMD_PWM
+TASK_RX_DIM_CMD_PLUS4:
+        JP      TASK_RX_ECHO
+TASK_RX_DIM_CMD_PWM:
+        LD      R1,#00H
+        CALL    PWM0
+        JP      TASK_RX_ECHO 
+TASK_RX_ECHO:
+        LD      R1,#uart_rx_data
+TASK_RX_ECHO_REPEAT:
+        LD      R0,@R1
+        CALL    UART_TX
+        INC     R1
+        CP      R1,R3
+        JP      ULE,TASK_RX_ECHO_REPEAT       
+TASK_RX_DISCARD:
+        DI
         CALL    UART_RX_DATA_INIT
-        
-        LD      R15,uart_rx_data
-DISCARD_DATA:
-        ;CALL    UART_RX_DATA_INIT
-        
+        LD      R15,#uart_rx_data
+        LD      R12,#00H
+        EI
+TASK_RX_END:        
         RET 
-
+        
 BUTTON_PRESS:        
         LD      R0,P0
         AND     R0,#00000001B
+        ;AND     R0,#00010000B
         CP      R0,#001H
+        ;CP      R0,#010H
         JP      EQ,BUTTON_PRESS_RELEASE
         CP      R13,#064H
         JP      LE,BUTTON_PRESS_DEBOUNCE
         CP      R0,#001H
+        ;CP      R0,#010H
         JP      EQ,BUTTON_PRESS_RELEASE
         CP      R14,#00H
         JP      NE,BUTTON_PRESS_CONTINUE
@@ -937,6 +915,7 @@ BUTTON_PRESS:
         JP      NE,BUTTON_PRESS_LED_OFF
 BUTTON_PRESS_LED_ON:
         LD      R0,#001H
+        ;LD      R0,#03FH
         LD      R1,#00H
         CALL    PWM0
         LD      R0,#02H
@@ -951,7 +930,7 @@ BUTTON_PRESS_LED_ON:
         CALL    UART_TX
         LD      R0,#20H
         CALL    UART_TX    
-        LD      R0,#31H
+        LD      R0,#VE209S_NUMBER
         CALL    UART_TX 
         LD      R0,#03H
         CALL    UART_TX
@@ -960,6 +939,7 @@ BUTTON_PRESS_LED_OFF:
         LD      R0,#00H
         LD      R1,#00H
         CALL    PWM0
+BUTTON_PRESS_LED_OFF_TX:
         LD      R0,#02H
         CALL    UART_TX
         LD      R0,#00H
@@ -974,7 +954,7 @@ BUTTON_PRESS_LED_OFF:
         CALL    UART_TX
         LD      R0,#20H
         CALL    UART_TX    
-        LD      R0,#31H
+        LD      R0,#VE209S_NUMBER
         CALL    UART_TX 
         LD      R0,#03H
         CALL    UART_TX
@@ -1173,6 +1153,10 @@ UART_TRS_INT:
 UART_RV_INT:
         SB1
         LD      @R15,UDATA
+        CP      UDATA,#03H
+        JP      NE,UART_RV_INT_ETX
+        LD      R12,#80H
+UART_RV_INT_ETX:
         INC     R15
         AND     UARTPND, #11111101B                      ;clear pending bit
         SB0

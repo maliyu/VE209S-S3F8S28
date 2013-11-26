@@ -3,5 +3,5 @@ SAM8 Assembler Ver. 2.15T(Win32) Copyright (c) 2003 Samsung Electronics Co.
 VE209S.src:
  pass 1
  pass 2
-Total 1202 Lines Assembled - 0 Errors, 0 Warnings
-Total code size 0x500
+Total 1186 Lines Assembled - 0 Errors, 0 Warnings
+Total code size 0x4F9
